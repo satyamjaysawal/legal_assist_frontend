@@ -33,6 +33,7 @@ function authHeaders(token) {
 
 const STEP_LABELS = {
   memory: "Memory load",
+  rag: "Document search",
   prompt_cache: "Prompt cache",
   analyser: "Query analyser",
   generate: "Answer generator",
@@ -68,7 +69,9 @@ function TraceCard({ trace }) {
   const writes = trace.writes || [];
   const cache = trace.cache;
   const cacheWrite = trace.cacheWrite;
-  if (!trace.thinking && !steps.length && !cache && !layers.length) return null;
+  const retrieval = trace.retrieval;
+  const hits = retrieval?.hits || [];
+  if (!trace.thinking && !steps.length && !cache && !layers.length && !retrieval) return null;
   return (
     <details className="trace" open>
       <summary>
@@ -100,6 +103,31 @@ function TraceCard({ trace }) {
               </li>
             ))}
           </ol>
+        </div>
+      )}
+
+      {retrieval && (
+        <div className="trace-section">
+          <p className="trace-kicker">Qdrant retrieval</p>
+          <p className={`trace-cache ${retrieval.report?.status || "miss"}`}>
+            <strong>{(retrieval.report?.status || "miss").toUpperCase()}</strong>
+            {retrieval.report?.model ? ` · ${retrieval.report.model}` : ""}
+            {retrieval.report?.detail ? ` — ${retrieval.report.detail}` : ""}
+          </p>
+          {!!hits.length && (
+            <div className="trace-hits">
+              {hits.map((hit) => (
+                <article key={hit.id} className="trace-layer hit">
+                  <header>
+                    <strong>{hit.filename || "document"}</strong>
+                    <span>{hit.score}</span>
+                  </header>
+                  <p>{hit.kind} · chunk {(hit.chunk_index ?? 0) + 1}</p>
+                  <p>{(hit.text || "").slice(0, 180)}{(hit.text || "").length > 180 ? "…" : ""}</p>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -180,6 +208,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     { key: "short_term", label: "Short-term", hint: "Redis" },
     { key: "long_term", label: "Long-term", hint: "MongoDB" },
     { key: "prompt_cache", label: "Prompt cache", hint: "Redis + RAM" },
+    { key: "qdrant", label: "Qdrant", hint: "Document vectors" },
   ];
 
   return (
@@ -241,6 +270,23 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
           ))}
         </div>
       )}
+
+      <div className="memory-facts">
+        <p className="eyebrow memory-gap">Uploaded documents ({data.documents?.length || 0})</p>
+        {!data.documents?.length && <p>No PDF, DOCX, text, or image files on this journey yet.</p>}
+        {data.documents?.map((doc) => (
+          <article key={doc.doc_id} className="fact-row">
+            <header>
+              <strong>{doc.filename}</strong>
+              <em>{doc.kind}</em>
+            </header>
+            <p>
+              {doc.chunks} chunk(s) · {doc.embed_model || "nomic-embed-text-v1.5"}
+              {doc.embed_provider ? ` · ${doc.embed_provider}` : ""}
+            </p>
+          </article>
+        ))}
+      </div>
 
       <div className="memory-facts">
         <p className="eyebrow memory-gap">Long-term facts ({data.facts?.length || 0})</p>
@@ -426,6 +472,9 @@ export default function App() {
   const [followups, setFollowups] = useState([]);
   const [editingId, setEditingId] = useState("");
   const [editTitle, setEditTitle] = useState("");
+  const [docs, setDocs] = useState([]);
+  const [uploadNote, setUploadNote] = useState("");
+  const fileRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -481,6 +530,10 @@ export default function App() {
         }
       })
       .catch(() => {});
+    fetch(`${API}/documents?journey_id=${encodeURIComponent(journeyId)}`, { headers: authHeaders(token) })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.documents && setDocs(data.documents))
+      .catch(() => {});
   }, [token, journeyId]);
 
   useEffect(() => {
@@ -519,8 +572,45 @@ export default function App() {
     setMessages([]);
     setMemory({ layers: [], writes: [], facts: [] });
     setFollowups([]);
+    setDocs([]);
     setView("chat");
     setSidebarOpen(false);
+  }
+
+  async function uploadFile(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !journeyId || phase !== "idle") return;
+    setUploadNote(`Parsing ${file.name}…`);
+    setError("");
+    const body = new FormData();
+    body.append("file", file);
+    body.append("journey_id", journeyId);
+    try {
+      const res = await fetch(`${API}/documents/upload`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Upload failed");
+      setDocs((prev) => [data.document, ...prev.filter((item) => item.doc_id !== data.document.doc_id)]);
+      setUploadNote(
+        `Embedded ${data.document.filename} · ${data.document.chunks} chunk(s) · ${data.document.embed_provider || data.document.embed_model}`
+      );
+    } catch (err) {
+      setUploadNote("");
+      setError(err.message || "Could not upload file");
+    }
+  }
+
+  async function removeDoc(docId) {
+    const res = await fetch(`${API}/documents/${docId}`, {
+      method: "DELETE",
+      headers: authHeaders(token),
+    });
+    if (!res.ok) return;
+    setDocs((prev) => prev.filter((item) => item.doc_id !== docId));
   }
 
   async function renameCurrent(id, title) {
@@ -593,6 +683,13 @@ export default function App() {
           } else if (evt.type === "flow") {
             updateAssistant((prev) => ({
               trace: { ...(prev.trace || {}), steps: evt.steps || [] },
+            }));
+          } else if (evt.type === "retrieval") {
+            updateAssistant((prev) => ({
+              trace: {
+                ...(prev.trace || {}),
+                retrieval: { report: evt.report, hits: evt.hits || [] },
+              },
             }));
           } else if (evt.type === "cache") {
             updateAssistant((prev) => ({
@@ -834,12 +931,40 @@ export default function App() {
               </div>
             </main>
             <div className="composer-wrap">
+              {!!docs.length && (
+                <div className="doc-chips">
+                  {docs.map((doc) => (
+                    <span key={doc.doc_id} className="doc-chip">
+                      {doc.filename}
+                      <button type="button" onClick={() => removeDoc(doc.doc_id)} aria-label={`Remove ${doc.filename}`}>
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <form className="composer" onSubmit={send}>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  hidden
+                  accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.gif,application/pdf,text/plain,image/*"
+                  onChange={uploadFile}
+                />
+                <button
+                  type="button"
+                  className="attach"
+                  disabled={busy || !journeyId}
+                  onClick={() => fileRef.current?.click()}
+                  aria-label="Upload PDF, Word, text, or image"
+                >
+                  +
+                </button>
                 <textarea
                   ref={inputRef}
                   rows={1}
                   value={input}
-                  placeholder="Ask anything"
+                  placeholder="Ask anything, or attach a file"
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -853,7 +978,7 @@ export default function App() {
                 </button>
               </form>
               <p className="hint">
-                {model || "Legal Assist"} · informational only, not formal advice
+                {uploadNote || `${model || "Legal Assist"} · PDF, DOCX, text, image → nomic-embed-text-v1.5 + Qdrant`}
               </p>
             </div>
           </>

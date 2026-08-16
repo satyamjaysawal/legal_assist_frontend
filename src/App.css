@@ -345,6 +345,59 @@
   padding: 8px 0;
 }
 
+.attach {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.attach:hover {
+  background: var(--elev);
+  color: var(--text);
+}
+
+.attach:disabled {
+  opacity: 0.28;
+  cursor: not-allowed;
+}
+
+.doc-chips {
+  width: min(760px, 100%);
+  margin: 0 auto 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.doc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 999px;
+  background: var(--elev);
+  font-size: 12px;
+}
+
+.doc-chip button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.trace-hits {
+  display: grid;
+  gap: 8px;
+}
+
 .send {
   width: 36px;
   height: 36px;
@@ -480,7 +533,7 @@
 }
 
 .memory-grid.four {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
 }
 
 .mem-card,
