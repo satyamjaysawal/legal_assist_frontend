@@ -8,7 +8,8 @@ export default defineConfig({
     proxy: {
       "/chat": "http://127.0.0.1:8000",
       "/health": "http://127.0.0.1:8000",
-      "/session": "http://127.0.0.1:8000",
+      "/auth": "http://127.0.0.1:8000",
+      "/journeys": "http://127.0.0.1:8000",
     },
   },
 });
