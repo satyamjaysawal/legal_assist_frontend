@@ -62,10 +62,10 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
 
   if (error) {
     return (
-      <section className="profile">
+      <section className="panel">
         <p className="error">{error}</p>
-        <button type="button" className="theme-btn" onClick={onBack}>
-          Back to chat
+        <button type="button" className="ghost" onClick={onBack}>
+          Back
         </button>
       </section>
     );
@@ -79,18 +79,15 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   ];
 
   return (
-    <section className="profile memory-page">
-      <div className="memory-head">
-        <div>
-          <p className="eyebrow">Memory</p>
-          <h2>Stores and facts</h2>
-        </div>
-        <button type="button" className="theme-btn" onClick={onBack}>
-          Back to chat
+    <section className="panel">
+      <div className="panel-head">
+        <h2>Memory</h2>
+        <button type="button" className="ghost" onClick={onBack}>
+          Back
         </button>
       </div>
-      <p className="memory-sub">
-        Journey {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · user {data.user_id}
+      <p className="memory-gap">
+        Journey {data.journey_id ? data.journey_id.slice(0, 8) : "—"}
       </p>
 
       <div className="memory-grid four">
@@ -155,7 +152,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
             {fact.journey_id && (
               <button
                 type="button"
-                className="theme-btn"
+                className="ghost"
                 onClick={() => onOpenJourney(fact.journey_id)}
               >
                 Open journey {fact.journey_id.slice(0, 8)}
@@ -199,10 +196,13 @@ function AuthScreen({ onAuthed }) {
   }
 
   return (
-    <div className="auth-wrap">
+    <div className="auth-screen">
       <form className="auth-card" onSubmit={submit}>
-        <p className="eyebrow">Legal AI Assistant</p>
-        <h1>{mode === "login" ? "Sign in" : "Create account"}</h1>
+        <div className="brand">
+          <span className="brand-mark">L</span>
+          Legal Assist
+        </div>
+        <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
         {mode === "register" && (
           <label>
             Name
@@ -229,12 +229,12 @@ function AuthScreen({ onAuthed }) {
           />
         </label>
         {error && <p className="error">{error}</p>}
-        <button className="send" type="submit" disabled={busy}>
-          {busy ? "Please wait…" : mode === "login" ? "Login" : "Register"}
+        <button className="auth-primary" type="submit" disabled={busy}>
+          {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
         </button>
         <button
           type="button"
-          className="theme-btn"
+          className="auth-switch"
           onClick={() => setMode(mode === "login" ? "register" : "login")}
         >
           {mode === "login" ? "Need an account?" : "Have an account?"}
@@ -265,14 +265,11 @@ function Profile({ user, journeys, token, onBack, onUser }) {
   }
 
   return (
-    <section className="profile">
-      <div className="memory-head">
-        <div>
-          <p className="eyebrow">Profile</p>
-          <h2>{user?.name}</h2>
-        </div>
-        <button type="button" className="theme-btn" onClick={onBack}>
-          Back to chat
+    <section className="panel">
+      <div className="panel-head">
+        <h2>{user?.name || "Profile"}</h2>
+        <button type="button" className="ghost" onClick={onBack}>
+          Back
         </button>
       </div>
       <dl className="profile-grid">
@@ -298,7 +295,7 @@ function Profile({ user, journeys, token, onBack, onUser }) {
           Display name
           <input value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <button className="send" type="submit">
+        <button className="auth-primary" type="submit">
           Save profile
         </button>
         {note && <p className="status">{note}</p>}
@@ -321,6 +318,7 @@ export default function App() {
   const [model, setModel] = useState("");
   const [memory, setMemory] = useState({ layers: [], writes: [], facts: [] });
   const [stores, setStores] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -413,6 +411,8 @@ export default function App() {
     setJourneyId(data.journey_id);
     setMessages([]);
     setMemory({ layers: [], writes: [], facts: [] });
+    setView("chat");
+    setSidebarOpen(false);
   }
 
   async function send(event) {
@@ -494,49 +494,55 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="shell">
-        <header className="top">
-          <div>
-            <p className="eyebrow">Legal AI Assistant</p>
-            <h1>Sign in</h1>
-          </div>
-          <button
-            type="button"
-            className="theme-btn"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-          >
-            {theme === "dark" ? "Light" : "Dark"}
-          </button>
-        </header>
+      <div className="auth-screen">
+        <button
+          type="button"
+          className="ghost"
+          style={{ position: "absolute", top: 16, right: 16 }}
+          onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+        >
+          {theme === "dark" ? "Light" : "Dark"}
+        </button>
         <AuthScreen onAuthed={onAuthed} />
       </div>
     );
   }
 
   const busy = phase !== "idle";
+  const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
     <div className="app-frame">
-      <aside className="sidebar">
-        <p className="eyebrow">Menu</p>
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="brand">
+          <span className="brand-mark">L</span>
+          Legal Assist
+        </div>
+        <button type="button" className="new-chat" onClick={newJourney}>
+          + New chat
+        </button>
         <button
           type="button"
-          className={`theme-btn ${view === "memory" ? "active" : ""}`}
-          onClick={() => setView("memory")}
+          className={`nav-btn ${view === "memory" ? "active" : ""}`}
+          onClick={() => {
+            setView("memory");
+            setSidebarOpen(false);
+          }}
         >
           Memory
         </button>
-        <p className="eyebrow memory-gap">Threads</p>
-        <button type="button" className="theme-btn" onClick={newJourney}>
-          New journey
-        </button>
+        <p className="journey-label">Chats</p>
         <ul className="journey-list">
           {journeys.map((item) => (
             <li key={item.journey_id}>
               <button
                 type="button"
                 className={item.journey_id === journeyId ? "active" : ""}
-                onClick={() => setJourneyId(item.journey_id)}
+                onClick={() => {
+                  setJourneyId(item.journey_id);
+                  setView("chat");
+                  setSidebarOpen(false);
+                }}
               >
                 <strong>{item.title}</strong>
                 <small>{item.journey_id.slice(0, 8)}</small>
@@ -544,31 +550,29 @@ export default function App() {
             </li>
           ))}
         </ul>
+        <div className="sidebar-foot">
+          <button type="button" className="user-chip" onClick={() => setView("profile")}>
+            <span className="avatar">{initial}</span>
+            <span>
+              <strong>{user?.name || "Account"}</strong>
+              <small>{user?.email}</small>
+            </span>
+          </button>
+        </div>
       </aside>
 
-      <div className="shell">
-        <header className="top">
-          <div>
-            <p className="eyebrow">{user?.email}</p>
-            <h1>LangGraph + memory</h1>
-          </div>
+      <div className="main">
+        <header className="topbar">
+          <button type="button" className="ghost mobile-only" onClick={() => setSidebarOpen((v) => !v)}>
+            Menu
+          </button>
+          <h1>Legal Assist</h1>
           <div className="top-actions">
-            <span className="badge">{model || "connecting…"}</span>
-            <button type="button" className="theme-btn" onClick={() => setView("memory")}>
-              Memory
-            </button>
-            <button type="button" className="theme-btn" onClick={() => setView("profile")}>
-              Profile
-            </button>
-            <button
-              type="button"
-              className="theme-btn"
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            >
+            <button type="button" className="ghost" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
               {theme === "dark" ? "Light" : "Dark"}
             </button>
-            <button type="button" className="theme-btn" onClick={logout}>
-              Logout
+            <button type="button" className="ghost" onClick={logout}>
+              Log out
             </button>
           </div>
         </header>
@@ -593,60 +597,54 @@ export default function App() {
           />
         ) : (
           <>
-            <p className="store-line">
-              Journey {journeyId ? journeyId.slice(0, 8) : "—"} · Redis{" "}
-              {stores?.short_term?.ok ? "on" : "off"} · Mongo {stores?.long_term?.db || "off"} ·{" "}
-              <button type="button" className="linkish" onClick={() => setView("memory")}>
-                Open memory
-              </button>
-            </p>
             <main className="thread">
-              {messages.length === 0 && (
-                <div className="empty">
-                  <p>This journey is empty. Ask a legal question to start the thread.</p>
-                </div>
-              )}
-              {messages.map((msg, i) => (
-                <article key={`${msg.role}-${i}`} className={`bubble ${msg.role}`}>
-                  <span className="who">{msg.role === "user" ? "You" : "Assistant"}</span>
-                  {msg.role === "assistant" && <AnalysisChips analysis={msg.analysis} />}
-                  {msg.role === "assistant" && !!msg.memoryLayers?.length && (
-                    <div className="chips mem-used">
-                      {msg.memoryLayers.map((layer) => (
-                        <span key={layer.name}>
-                          {layer.label}: {layer.status}
-                        </span>
-                      ))}
+              <div className="thread-inner">
+                {messages.length === 0 && (
+                  <div className="empty">
+                    <h2>What can I help with?</h2>
+                    <p>Ask a legal question. Memory stays on this journey.</p>
+                  </div>
+                )}
+                {messages.map((msg, i) => (
+                  <div key={`${msg.role}-${i}`} className={`row ${msg.role}`}>
+                    {msg.role === "assistant" && <span className="avatar bot">L</span>}
+                    <div className="msg">
+                      {msg.role === "assistant" && <AnalysisChips analysis={msg.analysis} />}
+                      <p>
+                        {msg.content ||
+                          (phase === "analysing" ? "Thinking…" : "")}
+                      </p>
                     </div>
-                  )}
-                  <p>
-                    {msg.content ||
-                      (msg.role === "assistant" && phase === "analysing" ? "Loading memory…" : "")}
-                  </p>
-                </article>
-              ))}
-              {phase === "writing" && <p className="status">Streaming…</p>}
-              {error && <p className="error">{error}</p>}
-              <div ref={bottomRef} />
+                  </div>
+                ))}
+                {phase === "writing" && <p className="status">Streaming…</p>}
+                {error && <p className="error">{error}</p>}
+                <div ref={bottomRef} />
+              </div>
             </main>
-            <form className="composer" onSubmit={send}>
-              <textarea
-                ref={inputRef}
-                rows={1}
-                value={input}
-                placeholder="Type a message…"
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(e);
-                  }
-                }}
-              />
-              <button className="send" type="submit" disabled={busy || !input.trim()}>
-                Send
-              </button>
-            </form>
+            <div className="composer-wrap">
+              <form className="composer" onSubmit={send}>
+                <textarea
+                  ref={inputRef}
+                  rows={1}
+                  value={input}
+                  placeholder="Ask anything"
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(e);
+                    }
+                  }}
+                />
+                <button className="send" type="submit" disabled={busy || !input.trim()} aria-label="Send">
+                  ↑
+                </button>
+              </form>
+              <p className="hint">
+                {model || "Legal Assist"} · informational only, not formal advice
+              </p>
+            </div>
           </>
         )}
       </div>
