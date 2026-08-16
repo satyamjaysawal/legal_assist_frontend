@@ -41,6 +41,65 @@ const STEP_LABELS = {
   followups: "Follow-ups",
 };
 
+const UPLOAD_STEP_LABELS = {
+  receive: "Receive file",
+  validate: "Validate size",
+  parse: "Parse document",
+  chunk: "Chunk text",
+  mongodb: "MongoDB upload",
+  embed: "Embed chunks",
+  qdrant: "Qdrant index",
+};
+
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+function formatBytes(n) {
+  const value = Number(n) || 0;
+  if (value < 1024) return `${value} B`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function UploadPanel({ job }) {
+  if (!job) return null;
+  const steps = job.steps || [];
+  const doneCount = steps.filter((step) => step.status === "done").length;
+  const total = Math.max(steps.length, 7);
+  const pct = job.error ? 100 : Math.min(100, Math.round((doneCount / total) * 100));
+  return (
+    <details className={`upload-panel ${job.error ? "error" : job.done ? "done" : "running"}`} open>
+      <summary>
+        <span>{job.done ? "File ready" : job.error ? "Upload failed" : "Uploading file"}</span>
+        <em>
+          {job.filename || "file"} · {formatBytes(job.bytes)}
+        </em>
+      </summary>
+      {job.thinking && <p className="trace-think">{job.thinking}</p>}
+      <div className="upload-bar" aria-hidden="true">
+        <span style={{ width: `${pct}%` }} />
+      </div>
+      {!!steps.length && (
+        <ol className="trace-flow">
+          {steps.map((step, i) => (
+            <li key={`${step.name}-${i}`} className={step.status}>
+              <strong>{UPLOAD_STEP_LABELS[step.name] || step.name}</strong>
+              <span>{step.status}</span>
+              {step.detail && <em>{step.detail}</em>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {job.mongo && <p className="trace-cache write">{job.mongo.detail}</p>}
+      {job.document && (
+        <p className="trace-cache write">
+          Stored in MongoDB GridFS · {job.document.chunks} chunk(s) · {job.document.embed_provider || job.document.embed_model}
+        </p>
+      )}
+      {job.error && <p className="error">{job.error}</p>}
+    </details>
+  );
+}
+
 function AnalysisChips({ analysis, cached }) {
   if (!analysis) return null;
   const chips = [
@@ -210,6 +269,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     { key: "prompt_cache", label: "Prompt cache", hint: "Redis + RAM" },
     { key: "qdrant", label: "Qdrant", hint: "Document vectors" },
   ];
+  const fileStore = data.files || {};
 
   return (
     <section className="panel">
@@ -273,6 +333,9 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
 
       <div className="memory-facts">
         <p className="eyebrow memory-gap">Uploaded documents ({data.documents?.length || 0})</p>
+        <p className="mem-store">
+          Originals: {fileStore.ok ? `${fileStore.db}.${fileStore.bucket}` : "MongoDB GridFS"} · max 5 MB
+        </p>
         {!data.documents?.length && <p>No PDF, DOCX, text, or image files on this journey yet.</p>}
         {data.documents?.map((doc) => (
           <article key={doc.doc_id} className="fact-row">
@@ -281,7 +344,10 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
               <em>{doc.kind}</em>
             </header>
             <p>
-              {doc.chunks} chunk(s) · {doc.embed_model || "nomic-embed-text-v1.5"}
+              {doc.chunks} chunk(s) · {formatBytes(doc.bytes)} · {doc.stored_in || "mongodb_gridfs"}
+            </p>
+            <p className="mem-store">
+              {doc.embed_model || "nomic-embed-text-v1.5"}
               {doc.embed_provider ? ` · ${doc.embed_provider}` : ""}
             </p>
           </article>
@@ -473,7 +539,7 @@ export default function App() {
   const [editingId, setEditingId] = useState("");
   const [editTitle, setEditTitle] = useState("");
   const [docs, setDocs] = useState([]);
-  const [uploadNote, setUploadNote] = useState("");
+  const [uploadJob, setUploadJob] = useState(null);
   const fileRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -538,7 +604,7 @@ export default function App() {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, phase, memory]);
+  }, [messages, phase, memory, uploadJob]);
 
   function logout() {
     localStorage.removeItem("legal_assist_token");
@@ -580,9 +646,32 @@ export default function App() {
   async function uploadFile(event) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !journeyId || phase !== "idle") return;
-    setUploadNote(`Parsing ${file.name}…`);
+    if (!file || !journeyId || uploadJob?.running) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setError(`File is larger than 5 MB (${formatBytes(file.size)})`);
+      setUploadJob({
+        filename: file.name,
+        bytes: file.size,
+        thinking: "Rejected on the client",
+        steps: [{ name: "validate", status: "error", detail: "Larger than 5 MB" }],
+        error: "Max upload size is 5 MB",
+        done: false,
+        running: false,
+      });
+      return;
+    }
     setError("");
+    setUploadJob({
+      filename: file.name,
+      bytes: file.size,
+      thinking: "Starting upload…",
+      steps: [],
+      mongo: null,
+      document: null,
+      error: "",
+      done: false,
+      running: true,
+    });
     const body = new FormData();
     body.append("file", file);
     body.append("journey_id", journeyId);
@@ -592,16 +681,74 @@ export default function App() {
         headers: { Authorization: `Bearer ${token}` },
         body,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.detail || "Upload failed");
-      setDocs((prev) => [data.document, ...prev.filter((item) => item.doc_id !== data.document.doc_id)]);
-      setUploadNote(
-        `Embedded ${data.document.filename} · ${data.document.chunks} chunk(s) · ${data.document.embed_provider || data.document.embed_model}`
-      );
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Upload failed (${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer = parseSseBuffer(buffer + decoder.decode(value, { stream: true }), (evt) => {
+          if (evt.type === "thinking") {
+            setUploadJob((prev) => ({ ...(prev || {}), thinking: evt.text, running: true }));
+          } else if (evt.type === "file") {
+            setUploadJob((prev) => ({
+              ...(prev || {}),
+              filename: evt.filename,
+              bytes: evt.bytes,
+              running: true,
+            }));
+          } else if (evt.type === "flow") {
+            setUploadJob((prev) => ({ ...(prev || {}), steps: evt.steps || [], running: true }));
+          } else if (evt.type === "mongo") {
+            setUploadJob((prev) => ({ ...(prev || {}), mongo: evt.report, running: true }));
+          } else if (evt.type === "document" || evt.type === "done") {
+            if (evt.document) {
+              setDocs((prev) => [evt.document, ...prev.filter((item) => item.doc_id !== evt.document.doc_id)]);
+            }
+            setUploadJob((prev) => ({
+              ...(prev || {}),
+              document: evt.document || prev?.document,
+              done: evt.type === "done",
+              running: evt.type !== "done",
+              thinking: evt.type === "done" ? "Done." : prev?.thinking,
+            }));
+          } else if (evt.type === "error") {
+            throw new Error(evt.detail || "Upload failed");
+          }
+        });
+      }
+      setUploadJob((prev) => (prev ? { ...prev, running: false, done: !prev.error } : prev));
     } catch (err) {
-      setUploadNote("");
+      setUploadJob((prev) => ({
+        ...(prev || { filename: file.name, bytes: file.size, steps: [] }),
+        error: err.message || "Could not upload file",
+        running: false,
+        done: false,
+      }));
       setError(err.message || "Could not upload file");
     }
+  }
+
+  async function downloadDoc(doc) {
+    if (!doc?.doc_id || !doc.gridfs_id) return;
+    const res = await fetch(`${API}/documents/${doc.doc_id}/file`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      setError("Could not download file from MongoDB");
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = doc.filename || "document";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function removeDoc(docId) {
@@ -769,7 +916,7 @@ export default function App() {
     );
   }
 
-  const busy = phase !== "idle";
+  const busy = phase !== "idle" || !!uploadJob?.running;
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
@@ -931,11 +1078,15 @@ export default function App() {
               </div>
             </main>
             <div className="composer-wrap">
+              <UploadPanel job={uploadJob} />
               {!!docs.length && (
                 <div className="doc-chips">
                   {docs.map((doc) => (
                     <span key={doc.doc_id} className="doc-chip">
-                      {doc.filename}
+                      <button type="button" className="doc-open" onClick={() => downloadDoc(doc)} disabled={!doc.gridfs_id}>
+                        {doc.filename}
+                      </button>
+                      <small>{formatBytes(doc.bytes)}</small>
                       <button type="button" onClick={() => removeDoc(doc.doc_id)} aria-label={`Remove ${doc.filename}`}>
                         ×
                       </button>
@@ -954,7 +1105,7 @@ export default function App() {
                 <button
                   type="button"
                   className="attach"
-                  disabled={busy || !journeyId}
+                  disabled={!!uploadJob?.running || !journeyId}
                   onClick={() => fileRef.current?.click()}
                   aria-label="Upload PDF, Word, text, or image"
                 >
@@ -964,7 +1115,7 @@ export default function App() {
                   ref={inputRef}
                   rows={1}
                   value={input}
-                  placeholder="Ask anything, or attach a file"
+                  placeholder="Ask anything, or attach a file (max 5 MB)"
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -978,7 +1129,7 @@ export default function App() {
                 </button>
               </form>
               <p className="hint">
-                {uploadNote || `${model || "Legal Assist"} · PDF, DOCX, text, image → nomic-embed-text-v1.5 + Qdrant`}
+                PDF, DOCX, text, image · max 5 MB · original saved in MongoDB GridFS · vectors in Qdrant
               </p>
             </div>
           </>

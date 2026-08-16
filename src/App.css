@@ -393,6 +393,72 @@
   color: var(--muted);
 }
 
+.doc-chip .doc-open {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.doc-chip small {
+  color: var(--faint);
+}
+
+.upload-panel {
+  width: min(760px, 100%);
+  margin: 0 auto 10px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
+  background: var(--elev);
+  font-size: 13px;
+}
+
+.upload-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+}
+
+.upload-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.upload-panel summary em {
+  font-style: normal;
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.upload-panel.running {
+  outline: 1px solid var(--line);
+}
+
+.upload-panel.done {
+  outline: 1px solid var(--hit);
+}
+
+.upload-panel.error {
+  outline: 1px solid var(--err, var(--danger));
+}
+
+.upload-bar {
+  height: 6px;
+  margin: 10px 0 8px;
+  border-radius: 999px;
+  background: var(--sidebar-hover);
+  overflow: hidden;
+}
+
+.upload-bar span {
+  display: block;
+  height: 100%;
+  background: var(--hit);
+  transition: width 0.25s ease;
+}
+
 .trace-hits {
   display: grid;
   gap: 8px;
