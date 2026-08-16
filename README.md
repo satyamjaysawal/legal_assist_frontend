@@ -12,8 +12,8 @@ React chat UI for the Legal Assist backend (LangGraph + Groq streaming).
 | Service | URL |
 | --- | --- |
 | **Frontend** | https://legalassistfrontend.vercel.app |
-| **Backend API** | https://legalassistbackend.vercel.app |
-| **Backend health** | https://legalassistbackend.vercel.app/health |
+| **Backend API** | https://legal-assist-graph.vercel.app |
+| **Backend health** | https://legal-assist-graph.vercel.app/health |
 
 **GitHub:** https://github.com/satyamjaysawal/legal_assist_frontend  
 **Vercel project:** `legal_assist_frontend` under [satyam-jaysawals-projects](https://vercel.com/satyam-jaysawals-projects)
@@ -46,7 +46,7 @@ Production needs the backend URL (baked in at build time):
 
 | Variable | Example | Purpose |
 | --- | --- | --- |
-| `VITE_API_URL` | `https://legalassistbackend.vercel.app` | FastAPI base URL |
+| `VITE_API_URL` | `https://legal-assist-graph.vercel.app` | FastAPI base URL |
 
 Locally you can leave it empty. Vite proxies `/chat` and `/health` to `http://127.0.0.1:8000`.
 
@@ -77,7 +77,7 @@ cd ../legal_assist_backend
 ```powershell
 npm i -g vercel
 vercel link --yes --project legal_assist_frontend
-vercel env add VITE_API_URL production --value "https://legalassistbackend.vercel.app" --yes
+vercel env add VITE_API_URL production --value "https://legal-assist-graph.vercel.app" --yes
 vercel deploy --prod
 ```
 
