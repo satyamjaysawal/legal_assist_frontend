@@ -28,8 +28,33 @@
   cursor: pointer;
 }
 
-.journey-list button.active {
+.journey-list button.active,
+.sidebar .theme-btn.active {
   border-color: var(--accent);
+}
+
+.memory-gap {
+  margin-top: 16px;
+}
+
+.fact-row {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elev);
+}
+
+.fact-row header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.memory-page {
+  max-height: calc(100vh - 120px);
+  overflow: auto;
 }
 
 .journey-list strong,

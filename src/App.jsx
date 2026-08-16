@@ -48,47 +48,122 @@ function AnalysisChips({ analysis }) {
   );
 }
 
-function MemoryBoard({ layers, writes, facts }) {
-  if (!layers?.length && !writes?.length) return null;
+function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const q = journeyId ? `?journey_id=${encodeURIComponent(journeyId)}` : "";
+    fetch(`${API}/memory${q}`, { headers: authHeaders(token) })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Could not load memory"))))
+      .then(setData)
+      .catch((err) => setError(err.message));
+  }, [token, journeyId]);
+
+  if (error) {
+    return (
+      <section className="profile">
+        <p className="error">{error}</p>
+        <button type="button" className="theme-btn" onClick={onBack}>
+          Back to chat
+        </button>
+      </section>
+    );
+  }
+  if (!data) return <p className="status">Loading memory…</p>;
+
+  const stores = [
+    { key: "in_memory", label: "In-memory", hint: "Process RAM" },
+    { key: "short_term", label: "Short-term", hint: "Redis" },
+    { key: "long_term", label: "Long-term", hint: "MongoDB" },
+  ];
+
   return (
-    <section className="memory">
+    <section className="profile memory-page">
       <div className="memory-head">
-        <p className="eyebrow">Memory this turn</p>
-        <p className="memory-sub">User thread + journey stores</p>
+        <div>
+          <p className="eyebrow">Memory</p>
+          <h2>Stores and facts</h2>
+        </div>
+        <button type="button" className="theme-btn" onClick={onBack}>
+          Back to chat
+        </button>
       </div>
+      <p className="memory-sub">
+        Journey {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · user {data.user_id}
+      </p>
+
       <div className="memory-grid four">
-        {(layers || []).map((layer) => (
-          <article key={layer.name} className={`mem-card ${layer.status || "miss"}`}>
-            <header>
-              <strong>{layer.label}</strong>
-              <em>{(layer.status || "miss").toUpperCase()}</em>
-            </header>
-            <p className="mem-store">{layer.store}</p>
-            <p>{layer.detail}</p>
-            {layer.when && <time>{new Date(layer.when).toLocaleTimeString()}</time>}
-          </article>
-        ))}
+        {stores.map((store) => {
+          const item = data.stores?.[store.key] || {};
+          return (
+            <article key={store.key} className={`mem-card ${item.ok ? "hit" : "error"}`}>
+              <header>
+                <strong>{store.label}</strong>
+                <em>{item.ok ? "ON" : "OFF"}</em>
+              </header>
+              <p className="mem-store">{store.hint}</p>
+              <p>{item.host || item.db || item.store || "—"}</p>
+              {item.error && <p className="error">{item.error}</p>}
+            </article>
+          );
+        })}
       </div>
-      {!!writes?.length && (
-        <ul className="memory-writes">
-          {writes.map((item) => (
-            <li key={`w-${item.name}`} className={item.wrote ? "ok" : "skip"}>
-              <span>Write · {item.label}</span>
-              <span>{item.detail}</span>
-            </li>
-          ))}
-        </ul>
+
+      {!!data.layers?.length && (
+        <>
+          <p className="eyebrow memory-gap">This journey</p>
+          <div className="memory-grid four">
+            {data.layers.map((layer) => (
+              <article key={layer.name} className={`mem-card ${layer.status || "miss"}`}>
+                <header>
+                  <strong>{layer.label}</strong>
+                  <em>{(layer.status || "miss").toUpperCase()}</em>
+                </header>
+                <p className="mem-store">{layer.store}</p>
+                <p>{layer.detail}</p>
+                {layer.when && <time>{new Date(layer.when).toLocaleString()}</time>}
+              </article>
+            ))}
+          </div>
+        </>
       )}
-      {!!facts?.length && (
+
+      {!!data.thread?.length && (
         <div className="memory-facts">
-          <p className="eyebrow">Long-term facts</p>
-          {facts.map((fact, i) => (
-            <p key={`${fact.summary}-${i}`}>
-              {fact.domain}: {fact.summary}
+          <p className="eyebrow memory-gap">Thread snapshot ({data.thread.length})</p>
+          {data.thread.map((msg, i) => (
+            <p key={`${msg.role}-${i}`}>
+              <strong>{msg.role}:</strong> {msg.content.slice(0, 180)}
+              {msg.content.length > 180 ? "…" : ""}
             </p>
           ))}
         </div>
       )}
+
+      <div className="memory-facts">
+        <p className="eyebrow memory-gap">Long-term facts ({data.facts?.length || 0})</p>
+        {!data.facts?.length && <p>No saved facts yet.</p>}
+        {data.facts?.map((fact, i) => (
+          <article key={`${fact.created_at}-${i}`} className="fact-row">
+            <header>
+              <strong>{fact.domain || "general"}</strong>
+              {fact.created_at && <time>{new Date(fact.created_at).toLocaleString()}</time>}
+            </header>
+            <p>{fact.summary}</p>
+            {fact.query && fact.query !== fact.summary && <p className="mem-store">Q: {fact.query}</p>}
+            {fact.journey_id && (
+              <button
+                type="button"
+                className="theme-btn"
+                onClick={() => onOpenJourney(fact.journey_id)}
+              >
+                Open journey {fact.journey_id.slice(0, 8)}
+              </button>
+            )}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -443,7 +518,15 @@ export default function App() {
   return (
     <div className="app-frame">
       <aside className="sidebar">
-        <p className="eyebrow">Threads</p>
+        <p className="eyebrow">Menu</p>
+        <button
+          type="button"
+          className={`theme-btn ${view === "memory" ? "active" : ""}`}
+          onClick={() => setView("memory")}
+        >
+          Memory
+        </button>
+        <p className="eyebrow memory-gap">Threads</p>
         <button type="button" className="theme-btn" onClick={newJourney}>
           New journey
         </button>
@@ -471,6 +554,9 @@ export default function App() {
           </div>
           <div className="top-actions">
             <span className="badge">{model || "connecting…"}</span>
+            <button type="button" className="theme-btn" onClick={() => setView("memory")}>
+              Memory
+            </button>
             <button type="button" className="theme-btn" onClick={() => setView("profile")}>
               Profile
             </button>
@@ -494,6 +580,16 @@ export default function App() {
             token={token}
             onBack={() => setView("chat")}
             onUser={setUser}
+          />
+        ) : view === "memory" ? (
+          <MemoryDetail
+            token={token}
+            journeyId={journeyId}
+            onBack={() => setView("chat")}
+            onOpenJourney={(id) => {
+              setJourneyId(id);
+              setView("chat");
+            }}
           />
         ) : (
           <>
