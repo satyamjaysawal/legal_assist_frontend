@@ -60,43 +60,80 @@ function formatBytes(n) {
   return `${(value / (1024 * 1024)).toFixed(2)} MB`;
 }
 
-function UploadPanel({ job }) {
-  if (!job) return null;
-  const steps = job.steps || [];
+function lastUniqueSteps(steps) {
+  const seen = new Map();
+  for (const step of steps || []) seen.set(step.name, step);
+  return [...seen.values()];
+}
+
+function UploadPanel({ job, view, onView }) {
+  if (!job || view === "hidden") return null;
+  const steps = lastUniqueSteps(job.steps);
   const doneCount = steps.filter((step) => step.status === "done").length;
-  const total = Math.max(steps.length, 7);
-  const pct = job.error ? 100 : Math.min(100, Math.round((doneCount / total) * 100));
-  return (
-    <details className={`upload-panel ${job.error ? "error" : job.done ? "done" : "running"}`} open>
-      <summary>
-        <span>{job.done ? "File ready" : job.error ? "Upload failed" : "Uploading file"}</span>
+  const total = Math.max(steps.length, 1);
+  const pct = job.error ? 100 : job.done ? 100 : Math.min(100, Math.round((doneCount / Math.max(total, 7)) * 100));
+  const title = job.done ? "File ready" : job.error ? "Upload failed" : "Uploading";
+  const tone = job.error ? "error" : job.done ? "done" : "running";
+  if (view === "mini") {
+    return (
+      <div className={`stream-mini ${tone}`}>
+        <div className="upload-bar thin" aria-hidden="true">
+          <span style={{ width: `${pct}%` }} />
+        </div>
+        <strong>{title}</strong>
         <em>
-          {job.filename || "file"} · {formatBytes(job.bytes)}
+          {job.filename || "file"} · {pct}%
         </em>
-      </summary>
+        <span className="stream-actions">
+          <button type="button" onClick={() => onView("open")}>
+            Expand
+          </button>
+          <button type="button" onClick={() => onView("hidden")}>
+            Hide
+          </button>
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className={`upload-panel compact ${tone}`}>
+      <header className="stream-head">
+        <div>
+          <strong>{title}</strong>
+          <em>
+            {job.filename || "file"} · {formatBytes(job.bytes)}
+          </em>
+        </div>
+        <span className="stream-actions">
+          <button type="button" onClick={() => onView("mini")}>
+            Min
+          </button>
+          <button type="button" onClick={() => onView("hidden")}>
+            Hide
+          </button>
+        </span>
+      </header>
       {job.thinking && <p className="trace-think">{job.thinking}</p>}
-      <div className="upload-bar" aria-hidden="true">
+      <div className="upload-bar thin" aria-hidden="true">
         <span style={{ width: `${pct}%` }} />
       </div>
       {!!steps.length && (
-        <ol className="trace-flow">
-          {steps.map((step, i) => (
-            <li key={`${step.name}-${i}`} className={step.status}>
+        <ol className="trace-flow compact">
+          {steps.map((step) => (
+            <li key={step.name} className={step.status}>
               <strong>{UPLOAD_STEP_LABELS[step.name] || step.name}</strong>
               <span>{step.status}</span>
-              {step.detail && <em>{step.detail}</em>}
             </li>
           ))}
         </ol>
       )}
-      {job.mongo && <p className="trace-cache write">{job.mongo.detail}</p>}
       {job.document && (
         <p className="trace-cache write">
-          Stored in MongoDB GridFS · {job.document.chunks} chunk(s) · {job.document.embed_provider || job.document.embed_model}
+          MongoDB · {job.document.chunks} chunks · {job.document.embed_provider || "indexed"}
         </p>
       )}
       {job.error && <p className="error">{job.error}</p>}
-    </details>
+    </div>
   );
 }
 
@@ -109,10 +146,9 @@ function AnalysisChips({ analysis, cached }) {
     analysis.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
   ].filter(Boolean);
   return (
-    <div className="analyser">
-      <p className="trace-kicker">Query analyser{cached ? " · cached" : ""}</p>
-      {analysis.summary && <p className="analyser-summary">{analysis.summary}</p>}
+    <div className="analyser compact">
       <div className="chips">
+        {cached && <span className="hit">cached</span>}
         {chips.map((chip) => (
           <span key={chip}>{chip}</span>
         ))}
@@ -121,9 +157,9 @@ function AnalysisChips({ analysis, cached }) {
   );
 }
 
-function TraceCard({ trace }) {
+function TraceCard({ trace, live }) {
   if (!trace) return null;
-  const steps = trace.steps || [];
+  const steps = lastUniqueSteps(trace.steps);
   const layers = trace.memoryLayers || [];
   const writes = trace.writes || [];
   const cache = trace.cache;
@@ -132,108 +168,49 @@ function TraceCard({ trace }) {
   const hits = retrieval?.hits || [];
   if (!trace.thinking && !steps.length && !cache && !layers.length && !retrieval) return null;
   return (
-    <details className="trace" open>
+    <details className="trace compact" open={!!live}>
       <summary>
-        <span>Run details</span>
-        {cache && (
-          <em className={`trace-badge ${cache.status}`}>
-            cache {(cache.status || "miss").toUpperCase()}
-            {cache.store ? ` · ${cache.store}` : ""}
-          </em>
-        )}
+        <span>{live ? trace.thinking || "Streaming" : "Run"}</span>
+        <em className="trace-pills">
+          {cache && <b className={cache.status}>cache {cache.status}</b>}
+          {retrieval?.report && <b className={retrieval.report.status}>rag {retrieval.report.status}</b>}
+        </em>
       </summary>
-
-      {trace.thinking && (
-        <div className="trace-section">
-          <p className="trace-kicker">Thinking</p>
-          <p className="trace-think">{trace.thinking}</p>
-        </div>
-      )}
-
       {!!steps.length && (
-        <div className="trace-section">
-          <p className="trace-kicker">Agent flow</p>
-          <ol className="trace-flow">
-            {steps.map((step, i) => (
-              <li key={`${step.name}-${i}`} className={step.status}>
-                <strong>{STEP_LABELS[step.name] || step.name}</strong>
-                <span>{step.status}</span>
-                {step.detail && <em>{step.detail}</em>}
-              </li>
-            ))}
-          </ol>
-        </div>
+        <ol className="trace-flow compact">
+          {steps.map((step) => (
+            <li key={step.name} className={step.status}>
+              <strong>{STEP_LABELS[step.name] || step.name}</strong>
+              <span>{step.status}</span>
+            </li>
+          ))}
+        </ol>
       )}
-
-      {retrieval && (
-        <div className="trace-section">
-          <p className="trace-kicker">Qdrant retrieval</p>
-          <p className={`trace-cache ${retrieval.report?.status || "miss"}`}>
-            <strong>{(retrieval.report?.status || "miss").toUpperCase()}</strong>
-            {retrieval.report?.model ? ` · ${retrieval.report.model}` : ""}
-            {retrieval.report?.detail ? ` — ${retrieval.report.detail}` : ""}
-          </p>
-          {!!hits.length && (
-            <div className="trace-hits">
-              {hits.map((hit) => (
-                <article key={hit.id} className="trace-layer hit">
-                  <header>
-                    <strong>{hit.filename || "document"}</strong>
-                    <span>{hit.score}</span>
-                  </header>
-                  <p>{hit.kind} · chunk {(hit.chunk_index ?? 0) + 1}</p>
-                  <p>{(hit.text || "").slice(0, 180)}{(hit.text || "").length > 180 ? "…" : ""}</p>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
+      {!!hits.length && (
+        <p className="trace-cache hit">
+          {hits[0].filename} · {hits[0].score}
+          {hits.length > 1 ? ` +${hits.length - 1}` : ""}
+        </p>
       )}
-
-      {(cache || cacheWrite) && (
-        <div className="trace-section">
-          <p className="trace-kicker">Prompt cache</p>
-          {cache && (
-            <p className={`trace-cache ${cache.status}`}>
-              <strong>{(cache.status || "miss").toUpperCase()}</strong>
-              {cache.store ? ` · ${cache.store}` : " · none"}
-              {cache.detail ? ` — ${cache.detail}` : ""}
-            </p>
-          )}
-          {cacheWrite && <p className="trace-cache write">{cacheWrite.detail}</p>}
-        </div>
-      )}
-
       {!!layers.length && (
-        <div className="trace-section">
-          <p className="trace-kicker">Memory hits</p>
-          <div className="trace-layers">
-            {layers.map((layer) => (
-              <article key={layer.name} className={`trace-layer ${layer.status || "miss"}`}>
-                <header>
-                  <strong>{layer.label}</strong>
-                  <span>{(layer.status || "miss").toUpperCase()}</span>
-                </header>
-                <p>{layer.store}</p>
-                <p>{layer.detail}</p>
-              </article>
-            ))}
-          </div>
+        <div className="chips">
+          {layers.map((layer) => (
+            <span key={layer.name} className={layer.status}>
+              {layer.label}: {layer.status}
+            </span>
+          ))}
         </div>
       )}
-
       {!!writes.length && (
-        <div className="trace-section">
-          <p className="trace-kicker">Memory writes</p>
-          <div className="chips">
-            {writes.map((write) => (
-              <span key={write.name || write.store}>
-                {write.label || write.name}: {write.wrote ? "wrote" : "skip"}
-              </span>
-            ))}
-          </div>
+        <div className="chips">
+          {writes.map((write) => (
+            <span key={write.name || write.store}>
+              {write.label || write.name}: {write.wrote ? "ok" : "skip"}
+            </span>
+          ))}
         </div>
       )}
+      {cacheWrite?.detail && <p className="trace-cache write">{cacheWrite.detail}</p>}
     </details>
   );
 }
@@ -272,7 +249,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   const fileStore = data.files || {};
 
   return (
-    <section className="panel">
+    <section className="panel compact">
       <div className="panel-head">
         <h2>Memory</h2>
         <button type="button" className="ghost" onClick={onBack}>
@@ -280,7 +257,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
         </button>
       </div>
       <p className="memory-gap">
-        Journey {data.journey_id ? data.journey_id.slice(0, 8) : "—"}
+        {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · max 5 MB · {fileStore.bucket || "files"}
       </p>
 
       <div className="memory-grid four">
@@ -293,50 +270,46 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
                 <em>{item.ok ? "ON" : "OFF"}</em>
               </header>
               <p className="mem-store">{store.hint}</p>
-              <p>{item.host || item.db || item.store || "—"}</p>
-              {item.error && <p className="error">{item.error}</p>}
             </article>
           );
         })}
       </div>
 
       {!!data.layers?.length && (
-        <>
-          <p className="eyebrow memory-gap">This journey</p>
+        <details className="mem-block" open>
+          <summary>This journey</summary>
           <div className="memory-grid four">
             {data.layers.map((layer) => (
               <article key={layer.name} className={`mem-card ${layer.status || "miss"}`}>
                 <header>
                   <strong>{layer.label}</strong>
-                  <em>{(layer.status || "miss").toUpperCase()}</em>
+                  <em>{layer.status || "miss"}</em>
                 </header>
-                <p className="mem-store">{layer.store}</p>
-                <p>{layer.detail}</p>
-                {layer.when && <time>{new Date(layer.when).toLocaleString()}</time>}
+                <p className="mem-store">{layer.detail}</p>
               </article>
             ))}
           </div>
-        </>
+        </details>
       )}
 
       {!!data.thread?.length && (
-        <div className="memory-facts">
-          <p className="eyebrow memory-gap">Thread snapshot ({data.thread.length})</p>
-          {data.thread.map((msg, i) => (
-            <p key={`${msg.role}-${i}`}>
-              <strong>{msg.role}:</strong> {msg.content.slice(0, 180)}
-              {msg.content.length > 180 ? "…" : ""}
-            </p>
-          ))}
-        </div>
+        <details className="mem-block">
+          <summary>Thread ({data.thread.length})</summary>
+          <div className="memory-facts">
+            {data.thread.map((msg, i) => (
+              <p key={`${msg.role}-${i}`}>
+                <strong>{msg.role}:</strong> {msg.content.slice(0, 120)}
+                {msg.content.length > 120 ? "…" : ""}
+              </p>
+            ))}
+          </div>
+        </details>
       )}
 
-      <div className="memory-facts">
-        <p className="eyebrow memory-gap">Uploaded documents ({data.documents?.length || 0})</p>
-        <p className="mem-store">
-          Originals: {fileStore.ok ? `${fileStore.db}.${fileStore.bucket}` : "MongoDB GridFS"} · max 5 MB
-        </p>
-        {!data.documents?.length && <p>No PDF, DOCX, text, or image files on this journey yet.</p>}
+      <details className="mem-block" open>
+        <summary>Files ({data.documents?.length || 0})</summary>
+        <div className="memory-facts">
+        {!data.documents?.length && <p>No files on this journey.</p>}
         {data.documents?.map((doc) => (
           <article key={doc.doc_id} className="fact-row">
             <header>
@@ -344,18 +317,16 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
               <em>{doc.kind}</em>
             </header>
             <p>
-              {doc.chunks} chunk(s) · {formatBytes(doc.bytes)} · {doc.stored_in || "mongodb_gridfs"}
-            </p>
-            <p className="mem-store">
-              {doc.embed_model || "nomic-embed-text-v1.5"}
-              {doc.embed_provider ? ` · ${doc.embed_provider}` : ""}
+              {doc.chunks} chunks · {formatBytes(doc.bytes)}
             </p>
           </article>
         ))}
-      </div>
+        </div>
+      </details>
 
-      <div className="memory-facts">
-        <p className="eyebrow memory-gap">Long-term facts ({data.facts?.length || 0})</p>
+      <details className="mem-block">
+        <summary>Facts ({data.facts?.length || 0})</summary>
+        <div className="memory-facts">
         {!data.facts?.length && <p>No saved facts yet.</p>}
         {data.facts?.map((fact, i) => (
           <article key={`${fact.created_at}-${i}`} className="fact-row">
@@ -364,19 +335,19 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
               {fact.created_at && <time>{new Date(fact.created_at).toLocaleString()}</time>}
             </header>
             <p>{fact.summary}</p>
-            {fact.query && fact.query !== fact.summary && <p className="mem-store">Q: {fact.query}</p>}
             {fact.journey_id && (
               <button
                 type="button"
                 className="ghost"
                 onClick={() => onOpenJourney(fact.journey_id)}
               >
-                Open journey {fact.journey_id.slice(0, 8)}
+                Open {fact.journey_id.slice(0, 8)}
               </button>
             )}
           </article>
         ))}
-      </div>
+        </div>
+      </details>
     </section>
   );
 }
@@ -540,6 +511,7 @@ export default function App() {
   const [editTitle, setEditTitle] = useState("");
   const [docs, setDocs] = useState([]);
   const [uploadJob, setUploadJob] = useState(null);
+  const [uploadView, setUploadView] = useState("open");
   const fileRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -661,6 +633,7 @@ export default function App() {
       return;
     }
     setError("");
+    setUploadView("open");
     setUploadJob({
       filename: file.name,
       bytes: file.size,
@@ -722,6 +695,7 @@ export default function App() {
         });
       }
       setUploadJob((prev) => (prev ? { ...prev, running: false, done: !prev.error } : prev));
+      setUploadView((view) => (view === "hidden" ? "hidden" : "mini"));
     } catch (err) {
       setUploadJob((prev) => ({
         ...(prev || { filename: file.name, bytes: file.size, steps: [] }),
@@ -1047,7 +1021,12 @@ export default function App() {
                   <div key={`${msg.role}-${i}`} className={`row ${msg.role}`}>
                     {msg.role === "assistant" && <span className="avatar bot">L</span>}
                     <div className="msg">
-                      {msg.role === "assistant" && <TraceCard trace={msg.trace} />}
+                      {msg.role === "assistant" && (
+                        <TraceCard
+                          trace={msg.trace}
+                          live={phase !== "idle" && i === messages.length - 1}
+                        />
+                      )}
                       {msg.role === "assistant" && (
                         <AnalysisChips analysis={msg.analysis} cached={msg.trace?.cache?.status === "hit"} />
                       )}
@@ -1078,7 +1057,12 @@ export default function App() {
               </div>
             </main>
             <div className="composer-wrap">
-              <UploadPanel job={uploadJob} />
+              {uploadJob && uploadView === "hidden" && (
+                <button type="button" className="stream-restore" onClick={() => setUploadView("mini")}>
+                  Show upload · {uploadJob.filename || "file"}
+                </button>
+              )}
+              <UploadPanel job={uploadJob} view={uploadView} onView={setUploadView} />
               {!!docs.length && (
                 <div className="doc-chips">
                   {docs.map((doc) => (
