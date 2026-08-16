@@ -1,11 +1,11 @@
 # Legal Assist — Frontend
 
-React chat UI for the Legal Assist Groq backend.
+React chat UI for the Legal Assist backend (LangGraph + Groq streaming).
 
 | Layer | Stack |
 | --- | --- |
 | **Frontend** | Vite + React |
-| **Backend** | FastAPI + Groq ([separate repo](https://github.com/satyamjaysawal/legal_assist_backend)) |
+| **Backend** | FastAPI + LangChain + LangGraph + Groq ([separate repo](https://github.com/satyamjaysawal/legal_assist_backend)) |
 
 ## Live production (Vercel)
 
@@ -20,8 +20,8 @@ React chat UI for the Legal Assist Groq backend.
 
 ## Features
 
-- Chat thread with user / assistant bubbles
-- Calls backend `GET /health` and `POST /chat`
+- Streams `POST /chat/stream` (SSE)
+- Shows query-analyser chips (intent, domain, complexity)
 - Enter to send, Shift+Enter for a new line
 - Shows the live Groq model name
 

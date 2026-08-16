@@ -91,6 +91,24 @@ h1 {
   color: #c4a574;
 }
 
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+.chips span {
+  padding: 2px 8px;
+  border: 1px solid #5a4a32;
+  border-radius: 999px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #e6d3ad;
+}
+
 .status,
 .error {
   font-size: 14px;
