@@ -204,6 +204,17 @@ h1 {
   color: var(--muted);
 }
 
+.store-line .linkish {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+}
+
 .memory {
   margin-top: 16px;
   padding: 14px;

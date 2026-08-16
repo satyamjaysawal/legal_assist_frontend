@@ -595,9 +595,11 @@ export default function App() {
           <>
             <p className="store-line">
               Journey {journeyId ? journeyId.slice(0, 8) : "—"} · Redis{" "}
-              {stores?.short_term?.ok ? "on" : "off"} · Mongo {stores?.long_term?.db || "off"}
+              {stores?.short_term?.ok ? "on" : "off"} · Mongo {stores?.long_term?.db || "off"} ·{" "}
+              <button type="button" className="linkish" onClick={() => setView("memory")}>
+                Open memory
+              </button>
             </p>
-            <MemoryBoard layers={memory.layers} writes={memory.writes} facts={memory.facts} />
             <main className="thread">
               {messages.length === 0 && (
                 <div className="empty">
