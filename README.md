@@ -11,12 +11,12 @@ React chat UI for the Legal Assist backend (LangGraph + Groq streaming).
 
 | Service | URL |
 | --- | --- |
-| **Frontend** | https://legalassistfrontend.vercel.app |
+| **Frontend** | https://legal-assist-ui.vercel.app |
 | **Backend API** | https://legal-assist-graph.vercel.app |
 | **Backend health** | https://legal-assist-graph.vercel.app/health |
 
 **GitHub:** https://github.com/satyamjaysawal/legal_assist_frontend  
-**Vercel project:** `legal_assist_frontend` under [satyam-jaysawals-projects](https://vercel.com/satyam-jaysawals-projects)
+**Vercel project:** `legal-assist-ui` under [satyam-jaysawals-projects](https://vercel.com/satyam-jaysawals-projects)
 
 ## Features
 
