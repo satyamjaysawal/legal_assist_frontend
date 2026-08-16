@@ -31,7 +31,16 @@ function authHeaders(token) {
   };
 }
 
-function AnalysisChips({ analysis }) {
+const STEP_LABELS = {
+  memory: "Memory load",
+  prompt_cache: "Prompt cache",
+  analyser: "Query analyser",
+  generate: "Answer generator",
+  title: "Auto title",
+  followups: "Follow-ups",
+};
+
+function AnalysisChips({ analysis, cached }) {
   if (!analysis) return null;
   const chips = [
     analysis.intent,
@@ -40,10 +49,14 @@ function AnalysisChips({ analysis }) {
     analysis.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
   ].filter(Boolean);
   return (
-    <div className="chips">
-      {chips.map((chip) => (
-        <span key={chip}>{chip}</span>
-      ))}
+    <div className="analyser">
+      <p className="trace-kicker">Query analyser{cached ? " · cached" : ""}</p>
+      {analysis.summary && <p className="analyser-summary">{analysis.summary}</p>}
+      <div className="chips">
+        {chips.map((chip) => (
+          <span key={chip}>{chip}</span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -52,35 +65,86 @@ function TraceCard({ trace }) {
   if (!trace) return null;
   const steps = trace.steps || [];
   const layers = trace.memoryLayers || [];
+  const writes = trace.writes || [];
   const cache = trace.cache;
+  const cacheWrite = trace.cacheWrite;
+  if (!trace.thinking && !steps.length && !cache && !layers.length) return null;
   return (
     <details className="trace" open>
-      <summary>Run details</summary>
-      {trace.thinking && <p className="trace-think">{trace.thinking}</p>}
+      <summary>
+        <span>Run details</span>
+        {cache && (
+          <em className={`trace-badge ${cache.status}`}>
+            cache {(cache.status || "miss").toUpperCase()}
+            {cache.store ? ` · ${cache.store}` : ""}
+          </em>
+        )}
+      </summary>
+
+      {trace.thinking && (
+        <div className="trace-section">
+          <p className="trace-kicker">Thinking</p>
+          <p className="trace-think">{trace.thinking}</p>
+        </div>
+      )}
+
       {!!steps.length && (
-        <ol className="trace-flow">
-          {steps.map((step) => (
-            <li key={step.name} className={step.status}>
-              <strong>{step.name}</strong>
-              <span>{step.status}</span>
-              {step.detail && <em>{step.detail}</em>}
-            </li>
-          ))}
-        </ol>
+        <div className="trace-section">
+          <p className="trace-kicker">Agent flow</p>
+          <ol className="trace-flow">
+            {steps.map((step, i) => (
+              <li key={`${step.name}-${i}`} className={step.status}>
+                <strong>{STEP_LABELS[step.name] || step.name}</strong>
+                <span>{step.status}</span>
+                {step.detail && <em>{step.detail}</em>}
+              </li>
+            ))}
+          </ol>
+        </div>
       )}
-      {cache && (
-        <p className={`trace-cache ${cache.status}`}>
-          Prompt cache: <strong>{(cache.status || "miss").toUpperCase()}</strong>
-          {cache.store ? ` · ${cache.store}` : ""} — {cache.detail}
-        </p>
+
+      {(cache || cacheWrite) && (
+        <div className="trace-section">
+          <p className="trace-kicker">Prompt cache</p>
+          {cache && (
+            <p className={`trace-cache ${cache.status}`}>
+              <strong>{(cache.status || "miss").toUpperCase()}</strong>
+              {cache.store ? ` · ${cache.store}` : " · none"}
+              {cache.detail ? ` — ${cache.detail}` : ""}
+            </p>
+          )}
+          {cacheWrite && <p className="trace-cache write">{cacheWrite.detail}</p>}
+        </div>
       )}
+
       {!!layers.length && (
-        <div className="chips">
-          {layers.map((layer) => (
-            <span key={layer.name}>
-              {layer.label}: {layer.status}
-            </span>
-          ))}
+        <div className="trace-section">
+          <p className="trace-kicker">Memory hits</p>
+          <div className="trace-layers">
+            {layers.map((layer) => (
+              <article key={layer.name} className={`trace-layer ${layer.status || "miss"}`}>
+                <header>
+                  <strong>{layer.label}</strong>
+                  <span>{(layer.status || "miss").toUpperCase()}</span>
+                </header>
+                <p>{layer.store}</p>
+                <p>{layer.detail}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!!writes.length && (
+        <div className="trace-section">
+          <p className="trace-kicker">Memory writes</p>
+          <div className="chips">
+            {writes.map((write) => (
+              <span key={write.name || write.store}>
+                {write.label || write.name}: {write.wrote ? "wrote" : "skip"}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </details>
@@ -551,6 +615,9 @@ export default function App() {
             if (evt.journey_id) setJourneyId(evt.journey_id);
           } else if (evt.type === "memory_write") {
             setMemory((prev) => ({ ...prev, writes: evt.writes || [] }));
+            updateAssistant((prev) => ({
+              trace: { ...(prev.trace || {}), writes: evt.writes || [] },
+            }));
             if (evt.title) {
               setJourneys((prev) =>
                 prev.map((item) =>
@@ -737,7 +804,9 @@ export default function App() {
                     {msg.role === "assistant" && <span className="avatar bot">L</span>}
                     <div className="msg">
                       {msg.role === "assistant" && <TraceCard trace={msg.trace} />}
-                      {msg.role === "assistant" && <AnalysisChips analysis={msg.analysis} />}
+                      {msg.role === "assistant" && (
+                        <AnalysisChips analysis={msg.analysis} cached={msg.trace?.cache?.status === "hit"} />
+                      )}
                       <p>
                         {msg.content ||
                           (phase === "analysing" ? msg.trace?.thinking || "Thinking…" : "")}

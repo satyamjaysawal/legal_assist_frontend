@@ -479,6 +479,10 @@
   gap: 10px;
 }
 
+.memory-grid.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .mem-card,
 .fact-row {
   padding: 12px;
@@ -541,30 +545,72 @@
 }
 
 .trace {
-  margin: 0 0 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  margin: 0 0 12px;
+  padding: 10px 12px 12px;
+  border-radius: 14px;
   background: var(--elev);
   font-size: 13px;
 }
 
 .trace summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   cursor: pointer;
   font-weight: 600;
+  list-style: none;
+}
+
+.trace summary::-webkit-details-marker {
+  display: none;
+}
+
+.trace-badge {
+  font-style: normal;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--sidebar-hover);
+}
+
+.trace-badge.hit,
+.trace-badge.cached {
+  color: var(--hit);
+}
+
+.trace-badge.miss,
+.trace-badge.running {
+  color: var(--muted);
+}
+
+.trace-section {
+  margin-top: 12px;
+}
+
+.trace-kicker {
+  margin: 0 0 6px;
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .trace-think {
-  margin: 8px 0 6px;
+  margin: 0;
   color: var(--muted);
 }
 
 .trace-flow {
-  margin: 8px 0;
+  margin: 0;
   padding-left: 18px;
 }
 
 .trace-flow li {
-  margin: 4px 0;
+  margin: 6px 0;
 }
 
 .trace-flow li span {
@@ -587,20 +633,66 @@
 }
 
 .trace-flow .miss,
-.trace-flow .running {
+.trace-flow .running,
+.trace-flow .skip {
   color: var(--muted);
 }
 
 .trace-cache {
-  margin: 8px 0;
+  margin: 0 0 4px;
 }
 
-.trace-cache.hit {
+.trace-cache.hit,
+.trace-cache.write {
   color: var(--hit);
 }
 
 .trace-cache.miss {
   color: var(--muted);
+}
+
+.trace-layers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.trace-layer {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--sidebar);
+}
+
+.trace-layer header {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.trace-layer span {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.trace-layer.hit {
+  outline: 1px solid var(--hit);
+}
+
+.trace-layer p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.analyser {
+  margin: 0 0 10px;
+}
+
+.analyser-summary {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .followups {
