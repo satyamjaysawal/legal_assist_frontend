@@ -82,19 +82,54 @@
   flex: 1;
 }
 
-.journey-list button {
-  width: 100%;
-  text-align: left;
+.journey-list li {
   margin-bottom: 2px;
-  padding: 9px 12px;
+  border-radius: 10px;
+}
+
+.journey-list li.active,
+.chat-row:hover {
+  background: var(--sidebar-hover);
+}
+
+.chat-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.chat-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 9px 8px 9px 12px;
   border: 0;
   border-radius: 10px;
   background: transparent;
   cursor: pointer;
 }
 
-.journey-list button.active {
-  background: var(--sidebar-hover);
+.rename-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  color: var(--faint);
+}
+
+.rename-row {
+  padding: 4px 6px;
+}
+
+.rename-row input {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--input);
+  color: var(--text);
 }
 
 .journey-list strong,
@@ -346,21 +381,39 @@
 
 .auth-screen {
   min-height: 100vh;
+  width: 100%;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 24px 16px;
+  position: relative;
+}
+
+.auth-theme {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 
 .auth-card {
-  width: min(400px, 100%);
+  width: min(420px, 100%);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  padding: 32px 28px;
+  border-radius: 18px;
+  background: var(--sidebar);
+  box-shadow: var(--shadow);
+}
+
+.auth-card .brand {
+  padding: 0 0 4px;
+  justify-content: center;
 }
 
 .auth-card h1 {
-  margin: 4px 0 8px;
-  font-size: 28px;
+  margin: 0;
+  font-size: clamp(22px, 4vw, 28px);
+  text-align: center;
 }
 
 .auth-card label {
@@ -401,8 +454,10 @@
 .panel {
   width: min(760px, 100%);
   margin: 0 auto;
-  padding: 8px 16px 32px;
+  padding: 12px 20px 40px;
   overflow: auto;
+  flex: 1;
+  font-size: 15px;
 }
 
 .panel-head {
@@ -483,6 +538,34 @@
   flex-direction: column;
   gap: 10px;
   margin-top: 18px;
+}
+
+.followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+
+.followups p {
+  width: 100%;
+  margin: 0 0 2px;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.followups button {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+}
+
+.followups button:hover {
+  background: var(--elev);
 }
 
 .mobile-only {

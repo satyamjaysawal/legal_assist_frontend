@@ -319,6 +319,9 @@ export default function App() {
   const [memory, setMemory] = useState({ layers: [], writes: [], facts: [] });
   const [stores, setStores] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [followups, setFollowups] = useState([]);
+  const [editingId, setEditingId] = useState("");
+  const [editTitle, setEditTitle] = useState("");
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -411,13 +414,28 @@ export default function App() {
     setJourneyId(data.journey_id);
     setMessages([]);
     setMemory({ layers: [], writes: [], facts: [] });
+    setFollowups([]);
     setView("chat");
     setSidebarOpen(false);
   }
 
-  async function send(event) {
-    event.preventDefault();
-    const text = input.trim();
+  async function renameCurrent(id, title) {
+    const clean = title.trim();
+    if (!clean) return;
+    const res = await fetch(`${API}/journeys/${id}`, {
+      method: "PATCH",
+      headers: authHeaders(token),
+      body: JSON.stringify({ title: clean }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return;
+    setJourneys((prev) => prev.map((item) => (item.journey_id === id ? { ...item, ...data } : item)));
+    setEditingId("");
+  }
+
+  async function send(event, preset) {
+    if (event?.preventDefault) event.preventDefault();
+    const text = (preset ?? input).trim();
     if (!text || phase !== "idle" || !journeyId) return;
 
     const history = [...messages, { role: "user", content: text }];
@@ -425,6 +443,7 @@ export default function App() {
     setInput("");
     setPhase("analysing");
     setError("");
+    setFollowups([]);
 
     const updateAssistant = (patch) => {
       setMessages((current) => {
@@ -464,6 +483,17 @@ export default function App() {
             if (evt.journey_id) setJourneyId(evt.journey_id);
           } else if (evt.type === "memory_write") {
             setMemory((prev) => ({ ...prev, writes: evt.writes || [] }));
+            if (evt.title) {
+              setJourneys((prev) =>
+                prev.map((item) =>
+                  item.journey_id === (evt.journey_id || journeyId)
+                    ? { ...item, title: evt.title }
+                    : item
+                )
+              );
+            }
+          } else if (evt.type === "followups") {
+            setFollowups(evt.questions || []);
           } else if (evt.type === "analysis") {
             updateAssistant({ analysis: evt.analysis });
             setPhase("writing");
@@ -497,8 +527,7 @@ export default function App() {
       <div className="auth-screen">
         <button
           type="button"
-          className="ghost"
-          style={{ position: "absolute", top: 16, right: 16 }}
+          className="ghost auth-theme"
           onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         >
           {theme === "dark" ? "Light" : "Dark"}
@@ -534,19 +563,49 @@ export default function App() {
         <p className="journey-label">Chats</p>
         <ul className="journey-list">
           {journeys.map((item) => (
-            <li key={item.journey_id}>
-              <button
-                type="button"
-                className={item.journey_id === journeyId ? "active" : ""}
-                onClick={() => {
-                  setJourneyId(item.journey_id);
-                  setView("chat");
-                  setSidebarOpen(false);
-                }}
-              >
-                <strong>{item.title}</strong>
-                <small>{item.journey_id.slice(0, 8)}</small>
-              </button>
+            <li key={item.journey_id} className={item.journey_id === journeyId ? "active" : ""}>
+              {editingId === item.journey_id ? (
+                <form
+                  className="rename-row"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    renameCurrent(item.journey_id, editTitle);
+                  }}
+                >
+                  <input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    autoFocus
+                    onBlur={() => renameCurrent(item.journey_id, editTitle)}
+                  />
+                </form>
+              ) : (
+                <div className="chat-row">
+                  <button
+                    type="button"
+                    className="chat-open"
+                    onClick={() => {
+                      setJourneyId(item.journey_id);
+                      setFollowups([]);
+                      setView("chat");
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <strong>{item.title}</strong>
+                  </button>
+                  <button
+                    type="button"
+                    className="rename-btn"
+                    aria-label="Rename chat"
+                    onClick={() => {
+                      setEditingId(item.journey_id);
+                      setEditTitle(item.title || "");
+                    }}
+                  >
+                    ✎
+                  </button>
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -566,7 +625,7 @@ export default function App() {
           <button type="button" className="ghost mobile-only" onClick={() => setSidebarOpen((v) => !v)}>
             Menu
           </button>
-          <h1>Legal Assist</h1>
+          <h1>{journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}</h1>
           <div className="top-actions">
             <button type="button" className="ghost" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
               {theme === "dark" ? "Light" : "Dark"}
@@ -619,6 +678,20 @@ export default function App() {
                 ))}
                 {phase === "writing" && <p className="status">Streaming…</p>}
                 {error && <p className="error">{error}</p>}
+                {!!followups.length && phase === "idle" && (
+                  <div className="followups">
+                    <p>Follow up</p>
+                    {followups.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => send(null, q)}
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div ref={bottomRef} />
               </div>
             </main>
