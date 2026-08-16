@@ -1,0 +1,159 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 20px 18px 16px;
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #3a3228;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #c4a574;
+}
+
+h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.badge {
+  flex-shrink: 0;
+  margin-top: 8px;
+  padding: 5px 10px;
+  border: 1px solid #5a4a32;
+  border-radius: 999px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+  color: #e6d3ad;
+}
+
+.thread {
+  flex: 1;
+  overflow: auto;
+  padding: 22px 0 12px;
+}
+
+.empty {
+  margin-top: 48px;
+  padding: 22px;
+  border: 1px dashed #4a4034;
+  border-radius: 12px;
+  color: #cbbfa8;
+}
+
+.empty p,
+.bubble p,
+.status,
+.error {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.bubble {
+  max-width: 86%;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+}
+
+.bubble.user {
+  margin-left: auto;
+  background: #2a241c;
+  border: 1px solid #4a3d2c;
+}
+
+.bubble.assistant {
+  background: #1c1a17;
+  border: 1px solid #353028;
+}
+
+.who {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #c4a574;
+}
+
+.status,
+.error {
+  font-size: 14px;
+  color: #cbbfa8;
+}
+
+.error {
+  color: #e08a7a;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid #3a3228;
+}
+
+textarea {
+  flex: 1;
+  resize: none;
+  min-height: 48px;
+  max-height: 140px;
+  padding: 12px 14px;
+  border: 1px solid #4a3d2c;
+  border-radius: 10px;
+  background: #1b1713;
+  color: #f3ead8;
+  font: inherit;
+}
+
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid #c4a574;
+  outline-offset: 1px;
+}
+
+button {
+  align-self: flex-end;
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: #c4a574;
+  color: #1b140c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 14px 12px 10px;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .bubble {
+    max-width: 100%;
+  }
+}
