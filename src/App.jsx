@@ -48,6 +48,45 @@ function AnalysisChips({ analysis }) {
   );
 }
 
+function TraceCard({ trace }) {
+  if (!trace) return null;
+  const steps = trace.steps || [];
+  const layers = trace.memoryLayers || [];
+  const cache = trace.cache;
+  return (
+    <details className="trace" open>
+      <summary>Run details</summary>
+      {trace.thinking && <p className="trace-think">{trace.thinking}</p>}
+      {!!steps.length && (
+        <ol className="trace-flow">
+          {steps.map((step) => (
+            <li key={step.name} className={step.status}>
+              <strong>{step.name}</strong>
+              <span>{step.status}</span>
+              {step.detail && <em>{step.detail}</em>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {cache && (
+        <p className={`trace-cache ${cache.status}`}>
+          Prompt cache: <strong>{(cache.status || "miss").toUpperCase()}</strong>
+          {cache.store ? ` · ${cache.store}` : ""} — {cache.detail}
+        </p>
+      )}
+      {!!layers.length && (
+        <div className="chips">
+          {layers.map((layer) => (
+            <span key={layer.name}>
+              {layer.label}: {layer.status}
+            </span>
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
 function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
@@ -76,6 +115,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     { key: "in_memory", label: "In-memory", hint: "Process RAM" },
     { key: "short_term", label: "Short-term", hint: "Redis" },
     { key: "long_term", label: "Long-term", hint: "MongoDB" },
+    { key: "prompt_cache", label: "Prompt cache", hint: "Redis + RAM" },
   ];
 
   return (
@@ -439,7 +479,10 @@ export default function App() {
     if (!text || phase !== "idle" || !journeyId) return;
 
     const history = [...messages, { role: "user", content: text }];
-    setMessages([...history, { role: "assistant", content: "", analysis: null, memoryLayers: [] }]);
+    setMessages([
+      ...history,
+      { role: "assistant", content: "", analysis: null, memoryLayers: [], trace: { thinking: "Starting…", steps: [], cache: null } },
+    ]);
     setInput("");
     setPhase("analysing");
     setError("");
@@ -450,7 +493,8 @@ export default function App() {
         const next = [...current];
         const last = next[next.length - 1];
         if (!last || last.role !== "assistant") return current;
-        next[next.length - 1] = { ...last, ...patch };
+        const applied = typeof patch === "function" ? patch(last) : patch;
+        next[next.length - 1] = { ...last, ...applied };
         return next;
       });
     };
@@ -477,9 +521,33 @@ export default function App() {
         const { done, value } = await reader.read();
         if (done) break;
         buffer = parseSseBuffer(buffer + decoder.decode(value, { stream: true }), (evt) => {
-          if (evt.type === "memory") {
+          if (evt.type === "thinking") {
+            updateAssistant((prev) => ({
+              trace: { ...(prev.trace || {}), thinking: evt.text },
+            }));
+            setPhase("analysing");
+          } else if (evt.type === "flow") {
+            updateAssistant((prev) => ({
+              trace: { ...(prev.trace || {}), steps: evt.steps || [] },
+            }));
+          } else if (evt.type === "cache") {
+            updateAssistant((prev) => ({
+              trace: { ...(prev.trace || {}), cache: evt.report },
+            }));
+          } else if (evt.type === "cache_write") {
+            updateAssistant((prev) => ({
+              trace: {
+                ...(prev.trace || {}),
+                cacheWrite: evt.report,
+                cache: prev.trace?.cache || evt.report,
+              },
+            }));
+          } else if (evt.type === "memory") {
             setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
-            updateAssistant({ memoryLayers: evt.layers || [] });
+            updateAssistant((prev) => ({
+              memoryLayers: evt.layers || [],
+              trace: { ...(prev.trace || {}), memoryLayers: evt.layers || [] },
+            }));
             if (evt.journey_id) setJourneyId(evt.journey_id);
           } else if (evt.type === "memory_write") {
             setMemory((prev) => ({ ...prev, writes: evt.writes || [] }));
@@ -668,10 +736,11 @@ export default function App() {
                   <div key={`${msg.role}-${i}`} className={`row ${msg.role}`}>
                     {msg.role === "assistant" && <span className="avatar bot">L</span>}
                     <div className="msg">
+                      {msg.role === "assistant" && <TraceCard trace={msg.trace} />}
                       {msg.role === "assistant" && <AnalysisChips analysis={msg.analysis} />}
                       <p>
                         {msg.content ||
-                          (phase === "analysing" ? "Thinking…" : "")}
+                          (phase === "analysing" ? msg.trace?.thinking || "Thinking…" : "")}
                       </p>
                     </div>
                   </div>

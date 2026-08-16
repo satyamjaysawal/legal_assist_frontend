@@ -540,6 +540,69 @@
   margin-top: 18px;
 }
 
+.trace {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--elev);
+  font-size: 13px;
+}
+
+.trace summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.trace-think {
+  margin: 8px 0 6px;
+  color: var(--muted);
+}
+
+.trace-flow {
+  margin: 8px 0;
+  padding-left: 18px;
+}
+
+.trace-flow li {
+  margin: 4px 0;
+}
+
+.trace-flow li span {
+  margin-left: 6px;
+  color: var(--faint);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.trace-flow li em {
+  display: block;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.trace-flow .hit,
+.trace-flow .done,
+.trace-flow .cached {
+  color: var(--hit);
+}
+
+.trace-flow .miss,
+.trace-flow .running {
+  color: var(--muted);
+}
+
+.trace-cache {
+  margin: 8px 0;
+}
+
+.trace-cache.hit {
+  color: var(--hit);
+}
+
+.trace-cache.miss {
+  color: var(--muted);
+}
+
 .followups {
   display: flex;
   flex-wrap: wrap;
