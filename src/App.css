@@ -74,6 +74,34 @@
   color: var(--faint);
 }
 
+.journey-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.delete-all-btn {
+  margin: 12px 10px 2px 4px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.delete-all-btn:hover {
+  background: var(--elev);
+  color: var(--err, var(--danger, #d94a4a));
+}
+
+.delete-all-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .journey-list {
   list-style: none;
   margin: 0;

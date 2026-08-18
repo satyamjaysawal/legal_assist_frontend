@@ -777,6 +777,33 @@ export default function App() {
     }
   }
 
+  async function deleteAllJourneys() {
+    if (busy || !journeys.length) return;
+    if (!window.confirm("Delete all chats? Every chat, file, and memory entry will be removed.")) return;
+    setError("");
+    try {
+      const res = await fetch(`${API}/journeys`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not delete chats");
+      const nextList = data.journeys || (data.journey ? [data.journey] : []);
+      setJourneys(nextList);
+      setJourneyId(data.journey?.journey_id || nextList[0]?.journey_id || "");
+      setEditingId("");
+      setFollowups([]);
+      setUploadJob(null);
+      setUploadView("open");
+      setDocs([]);
+      setMessages([]);
+      setMemory({ layers: [], writes: [], facts: [] });
+      setView("chat");
+    } catch (err) {
+      setError(err.message || "Could not delete chats");
+    }
+  }
+
   async function renameCurrent(id, title) {
     const clean = title.trim();
     if (!clean) return;
@@ -956,7 +983,17 @@ export default function App() {
         >
           Memory
         </button>
-        <p className="journey-label">Chats</p>
+        <div className="journey-heading">
+          <p className="journey-label">Chats</p>
+          <button
+            type="button"
+            className="delete-all-btn"
+            disabled={busy || !journeys.length}
+            onClick={deleteAllJourneys}
+          >
+            Delete all
+          </button>
+        </div>
         <ul className="journey-list">
           {journeys.map((item) => (
             <li key={item.journey_id} className={item.journey_id === journeyId ? "active" : ""}>
