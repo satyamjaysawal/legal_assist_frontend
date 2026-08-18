@@ -110,13 +110,23 @@
 }
 
 .rename-btn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
   color: var(--faint);
+  flex-shrink: 0;
+}
+
+.rename-btn:hover {
+  color: var(--text);
+  background: var(--elev);
+}
+
+.delete-btn:hover {
+  color: var(--err, var(--danger, #d94a4a));
 }
 
 .rename-row {

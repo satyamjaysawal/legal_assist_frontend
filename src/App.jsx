@@ -726,12 +726,55 @@ export default function App() {
   }
 
   async function removeDoc(docId) {
-    const res = await fetch(`${API}/documents/${docId}`, {
+    if (!docId) return;
+    setError("");
+    try {
+      const res = await fetch(`${API}/documents/${docId}`, {
+        method: "DELETE",
+        headers: authHeaders(token),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || "Could not delete file");
+      }
+      setDocs((prev) => prev.filter((item) => item.doc_id !== docId));
+    } catch (err) {
+      setError(err.message || "Could not delete file");
+    }
+  }
+
+  async function deleteJourney(id) {
+    const target = journeys.find((item) => item.journey_id === id);
+    const label = target?.title || "this chat";
+    if (!window.confirm(`Delete “${label}”? Files and memory for this thread will be removed.`)) return;
+    const res = await fetch(`${API}/journeys/${id}`, {
       method: "DELETE",
       headers: authHeaders(token),
     });
-    if (!res.ok) return;
-    setDocs((prev) => prev.filter((item) => item.doc_id !== docId));
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.detail || "Could not delete chat");
+      return;
+    }
+    const nextList = data.journeys || [];
+    setJourneys(nextList);
+    const nextId = data.journey?.journey_id || nextList[0]?.journey_id || "";
+    setJourneyId(nextId);
+    setEditingId("");
+    setFollowups([]);
+    setUploadJob(null);
+    setUploadView("open");
+    setDocs([]);
+    setMessages([]);
+    setView("chat");
+    if (id !== nextId && nextId) {
+      fetch(`${API}/journeys/${nextId}`, { headers: authHeaders(token) })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((loaded) => {
+          if (loaded?.messages) setMessages(loaded.messages);
+        })
+        .catch(() => {});
+    }
   }
 
   async function renameCurrent(id, title) {
@@ -956,6 +999,15 @@ export default function App() {
                     }}
                   >
                     ✎
+                  </button>
+                  <button
+                    type="button"
+                    className="rename-btn delete-btn"
+                    aria-label="Delete chat"
+                    disabled={busy}
+                    onClick={() => deleteJourney(item.journey_id)}
+                  >
+                    ×
                   </button>
                 </div>
               )}
