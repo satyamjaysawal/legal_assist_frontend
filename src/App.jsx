@@ -989,26 +989,30 @@ export default function App() {
                   >
                     <strong>{item.title}</strong>
                   </button>
-                  <button
-                    type="button"
-                    className="rename-btn"
-                    aria-label="Rename chat"
-                    onClick={() => {
-                      setEditingId(item.journey_id);
-                      setEditTitle(item.title || "");
-                    }}
-                  >
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    className="rename-btn delete-btn"
-                    aria-label="Delete chat"
-                    disabled={busy}
-                    onClick={() => deleteJourney(item.journey_id)}
-                  >
-                    ×
-                  </button>
+                  <details className="chat-menu">
+                    <summary aria-label={`Chat options for ${item.title || "chat"}`}>
+                      {"\u22ee"}
+                    </summary>
+                    <div className="chat-menu-popover">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(item.journey_id);
+                          setEditTitle(item.title || "");
+                        }}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        type="button"
+                        className="delete-action"
+                        disabled={busy}
+                        onClick={() => deleteJourney(item.journey_id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </details>
                 </div>
               )}
             </li>

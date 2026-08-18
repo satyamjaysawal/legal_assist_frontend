@@ -109,7 +109,12 @@
   cursor: pointer;
 }
 
-.rename-btn {
+.chat-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.chat-menu summary {
   width: 24px;
   height: 24px;
   border: 0;
@@ -117,16 +122,60 @@
   background: transparent;
   cursor: pointer;
   color: var(--faint);
-  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  line-height: 1;
+  list-style: none;
 }
 
-.rename-btn:hover {
+.chat-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-menu summary:hover,
+.chat-menu[open] summary {
   color: var(--text);
   background: var(--elev);
 }
 
-.delete-btn:hover {
+.chat-menu-popover {
+  position: absolute;
+  z-index: 5;
+  top: 28px;
+  right: 0;
+  min-width: 108px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--elev);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+}
+
+.chat-menu-popover button {
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 13px;
+}
+
+.chat-menu-popover button:hover {
+  background: var(--sidebar-hover);
+}
+
+.chat-menu-popover .delete-action {
   color: var(--err, var(--danger, #d94a4a));
+}
+
+.chat-menu-popover button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .rename-row {
