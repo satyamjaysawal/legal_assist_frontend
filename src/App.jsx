@@ -1064,7 +1064,7 @@ export default function App() {
           }
         });
       }
-      if (!assembled.trim()) throw new Error("Empty reply from assistant");
+      if (!assembled.trim()) throw new Error("The assistant returned an empty response. The AI model may be unavailable — please try again in a moment.");
       fetch(`${API}/journeys`, { headers: authHeaders(token) })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => data?.journeys && setJourneys(data.journeys))
