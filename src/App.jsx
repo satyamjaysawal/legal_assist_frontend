@@ -264,6 +264,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     { key: "in_memory", label: "In-memory", hint: "Process RAM" },
     { key: "short_term", label: "Short-term", hint: "Redis" },
     { key: "long_term", label: "Long-term", hint: "MongoDB" },
+    { key: "semantic", label: "Semantic", hint: "Qdrant vectors" },
     { key: "prompt_cache", label: "Prompt cache", hint: "Redis + RAM" },
     { key: "qdrant", label: "Qdrant", hint: "Document vectors" },
   ];
@@ -322,6 +323,57 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
           );
         })}
       </div>
+
+      {data.procedural && (
+        <details className="mem-block" open>
+          <summary>Preferences (Procedural Memory)</summary>
+          <div className="profile-info">
+            {data.procedural.language && <p><strong>Language:</strong> {data.procedural.language}</p>}
+            {data.procedural.tone && <p><strong>Tone:</strong> {data.procedural.tone}</p>}
+            {data.procedural.format && <p><strong>Format:</strong> {data.procedural.format}</p>}
+            {data.procedural.jurisdiction && <p><strong>Jurisdiction:</strong> {data.procedural.jurisdiction}</p>}
+            {data.procedural.interaction_count && <p><strong>Interactions:</strong> {data.procedural.interaction_count}</p>}
+            {data.procedural.updated_at && (
+              <p className="profile-updated">
+                Last updated: {new Date(data.procedural.updated_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+
+      {!!data.episodes?.length && (
+        <details className="mem-block">
+          <summary>Episodes ({data.episodes.length})</summary>
+          <div className="memory-facts">
+            {data.episodes.map((ep, i) => (
+              <article key={`${ep.created_at}-${i}`} className="fact-row">
+                <header>
+                  <strong>{ep.domain || "general"}</strong>
+                  {ep.created_at && <time>{new Date(ep.created_at).toLocaleString()}</time>}
+                </header>
+                <p>{ep.summary || ep.query}</p>
+                {ep.topics?.length > 0 && (
+                  <p className="episode-topics">
+                    {ep.topics.slice(0, 5).map((t) => (
+                      <span key={t} className="topic-tag">{t}</span>
+                    ))}
+                  </p>
+                )}
+                {ep.journey_id && (
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => onOpenJourney(ep.journey_id)}
+                  >
+                    Open {ep.journey_id.slice(0, 8)}
+                  </button>
+                )}
+              </article>
+            ))}
+          </div>
+        </details>
+      )}
 
       {!!data.layers?.length && (
         <details className="mem-block" open>

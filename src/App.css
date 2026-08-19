@@ -836,6 +836,22 @@
   font-size: 11px;
 }
 
+.episode-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 4px 0 0;
+}
+
+.topic-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--sidebar-hover);
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
