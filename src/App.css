@@ -802,6 +802,40 @@
   font-size: 12px;
 }
 
+.profile-info {
+  padding: 10px 12px;
+  background: var(--elev);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.profile-info p {
+  margin: 0 0 8px;
+}
+
+.profile-info p:last-child {
+  margin-bottom: 0;
+}
+
+.profile-facts {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+
+.profile-facts li {
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.profile-updated {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 11px;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -268,6 +268,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     { key: "qdrant", label: "Qdrant", hint: "Document vectors" },
   ];
   const fileStore = data.files || {};
+  const profile = data.profile || {};
 
   return (
     <section className="panel compact">
@@ -280,6 +281,32 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
       <p className="memory-gap">
         {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · max 5 MB · {fileStore.bucket || "files"}
       </p>
+
+      {(profile.name || profile.email || profile.phone || profile.facts?.length) && (
+        <details className="mem-block" open>
+          <summary>Your Profile</summary>
+          <div className="profile-info">
+            {profile.name && <p><strong>Name:</strong> {profile.name}</p>}
+            {profile.email && <p><strong>Email:</strong> {profile.email}</p>}
+            {profile.phone && <p><strong>Phone:</strong> {profile.phone}</p>}
+            {profile.facts?.length > 0 && (
+              <div>
+                <strong>Facts:</strong>
+                <ul className="profile-facts">
+                  {profile.facts.map((fact, i) => (
+                    <li key={i}>{fact}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {profile.updated_at && (
+              <p className="profile-updated">
+                Last updated: {new Date(profile.updated_at).toLocaleString()}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
 
       <div className="memory-grid four">
         {stores.map((store) => {
