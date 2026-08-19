@@ -73,19 +73,22 @@ function authHeaders(token) {
 
 const STEP_LABELS = {
   memory: "Memory load",
-  rag: "Document search",
+  rag: "Document search (RAG)",
   prompt_cache: "Prompt cache",
   analyser: "Query analyser",
   generate: "Answer generator",
   title: "Auto title",
-  followups: "Follow-ups",
-  orchestrator: "Root agent",
+  followups: "Follow-up generator",
+  orchestrator: "Root agent (Orchestrator)",
   assistant: "Assistant agent",
   researcher: "Researcher agent",
   draft: "Draft agent",
   document_creator: "Document agent",
   email: "Email agent",
   lawyer_finder: "Lawyer finder",
+  compress: "Context compression",
+  fast_path: "Greeting fast-path",
+  memory_write: "Memory save",
 };
 
 const AGENT_LABELS = {
@@ -125,11 +128,21 @@ function lastUniqueSteps(steps) {
 }
 
 function stepTone(status) {
-  if (status === "done") return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+  if (status === "done" || status === "hit")
+    return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
   if (status === "running") return "animate-pulse border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400";
   if (status === "error") return "border-red-500/40 bg-red-500/10 text-danger";
   return "border-line bg-elev text-faint";
 }
+
+const STATUS_META = {
+  done: { icon: "✓", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  hit: { icon: "✓", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  running: { icon: "●", cls: "animate-pulse border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  error: { icon: "✕", cls: "border-red-500/50 bg-red-500/15 text-danger" },
+  miss: { icon: "○", cls: "border-line bg-elev text-faint" },
+  skip: { icon: "↷", cls: "border-line bg-elev text-faint" },
+};
 
 function ProgressBar({ pct, tone }) {
   const fill =
@@ -226,27 +239,48 @@ function UploadPanel({ job, view, onView }) {
 function AnalysisChips({ analysis, cached, routedTo }) {
   if (!analysis && !routedTo) return null;
   const chips = [
-    routedTo ? `agent: ${AGENT_LABELS[routedTo] || routedTo}` : null,
-    analysis?.intent,
-    analysis?.domain,
-    analysis?.complexity,
-    analysis?.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
+    analysis?.intent && `intent: ${analysis.intent}`,
+    analysis?.domain && `domain: ${analysis.domain}`,
+    analysis?.complexity && `complexity: ${analysis.complexity}`,
+    analysis?.jurisdiction && analysis.jurisdiction !== "unspecified" ? `jurisdiction: ${analysis.jurisdiction}` : null,
   ].filter(Boolean);
   return (
-    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-      {cached && <span className={`${CHIP} border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`}>cached</span>}
-      {routedTo && (
-        <span className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
-          {AGENT_LABELS[routedTo] || routedTo}
+    <div className="mb-2 rounded-xl border border-line bg-elev/50 p-2.5 text-xs animate-fade">
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-0.5 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-faint">
+          🧠 Intent classification
         </span>
-      )}
-      {chips
-        .filter((c) => c !== `agent: ${AGENT_LABELS[routedTo] || routedTo}`)
-        .map((chip) => (
+        {cached && (
+          <span className={`${CHIP} border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`}>
+            cached
+          </span>
+        )}
+        {chips.map((chip) => (
           <span key={chip} className={CHIP}>
             {chip}
           </span>
         ))}
+      </div>
+      {analysis?.summary && (
+        <p className="m-0 mt-1.5 text-muted">
+          <strong className="text-ink">Understood as:</strong> {analysis.summary}
+        </p>
+      )}
+      {analysis?.refined_query && analysis.refined_query !== analysis.summary && (
+        <p className="m-0 mt-0.5 text-muted">
+          <strong className="text-ink">Refined query:</strong> {analysis.refined_query}
+        </p>
+      )}
+      {routedTo && (
+        <p className="m-0 mt-1.5 flex flex-wrap items-center gap-1.5 text-muted">
+          <strong className="text-ink">Route:</strong>
+          <span className={CHIP}>Root orchestrator</span>
+          <span className="font-bold text-accent">→</span>
+          <span className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
+            {AGENT_LABELS[routedTo] || routedTo}
+          </span>
+        </p>
+      )}
     </div>
   );
 }
@@ -273,38 +307,71 @@ function TraceCard({ trace, live }) {
     </b>
   );
   return (
-    <details className="mb-1.5 rounded-xl border border-line bg-elev/60 text-xs" open={!!live}>
-      <summary className={`${SUMMARY} flex items-center justify-between gap-2 px-3 py-2 font-medium text-muted`}>
-        <span>{live ? trace.thinking || "Streaming" : "Run"}</span>
-        <em className="flex gap-1.5 not-italic">
-          {cache && cachePill(cache.status, "cache")}
-          {retrieval?.report && cachePill(retrieval.report.status, "rag")}
+    <details className="mb-2 overflow-hidden rounded-xl border border-line bg-elev/60 text-xs" open>
+      <summary className={`${SUMMARY} flex items-center justify-between gap-2 px-3 py-2`}>
+        <span className="flex items-center gap-2 text-ink">
+          <span className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 text-[10px] text-white shadow-sm">
+            ⚙
+          </span>
+          Agent Pipeline
+          <span className="rounded-full bg-elev px-1.5 py-0.5 text-[10px] font-medium text-faint">
+            {steps.length} step{steps.length !== 1 ? "s" : ""}
+          </span>
+        </span>
+        <em className="max-w-[55%] truncate not-italic text-muted">
+          {live ? trace.thinking || "Streaming…" : "Completed"}
         </em>
       </summary>
-      <div className="space-y-2 px-3 pb-2.5">
+      <div className="space-y-2 border-t border-line px-3 pb-3 pt-2.5">
+        {(cache || retrieval?.report) && (
+          <div className="flex flex-wrap gap-1.5">
+            {cache && cachePill(cache.status, "cache")}
+            {retrieval?.report && cachePill(retrieval.report.status, "rag")}
+          </div>
+        )}
         {!!steps.length && (
-          <ol className="flex flex-wrap gap-1.5">
-            {steps.map((step) => (
-              <li
-                key={step.name}
-                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${stepTone(step.status)}`}
-              >
-                <strong className="font-medium">{STEP_LABELS[step.name] || step.name}</strong>
-                <span>{step.status}</span>
-              </li>
-            ))}
+          <ol className="m-0 list-none space-y-0 p-0">
+            {steps.map((step, idx) => {
+              const meta = STATUS_META[step.status] || STATUS_META.miss;
+              return (
+                <li key={step.name} className="relative flex gap-2.5 pb-2 last:pb-0 animate-fade">
+                  {idx < steps.length - 1 && (
+                    <span className="absolute left-[9px] top-5 h-[calc(100%-14px)] w-px bg-line" aria-hidden="true" />
+                  )}
+                  <span
+                    className={`z-[1] grid size-[19px] shrink-0 place-items-center rounded-full border text-[10px] font-bold ${meta.cls}`}
+                  >
+                    {meta.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <strong className="text-[12px] font-semibold text-ink">
+                        {STEP_LABELS[step.name] || AGENT_LABELS[step.name] || step.name}
+                      </strong>
+                      <span className={`rounded-full border px-1.5 py-px text-[10px] ${stepTone(step.status)}`}>
+                        {step.status}
+                      </span>
+                    </div>
+                    {step.detail && <p className="m-0 text-[11px] leading-snug text-muted">{step.detail}</p>}
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         )}
         {!!hits.length && (
-          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
-            {hits[0].filename} · {hits[0].score}
-            {hits.length > 1 ? ` +${hits.length - 1}` : ""}
+          <p className="m-0 text-[11px] text-emerald-600 dark:text-emerald-400">
+            📄 {hits[0].filename} · score {hits[0].score}
+            {hits.length > 1 ? ` +${hits.length - 1} more` : ""}
           </p>
         )}
         {!!layers.length && (
           <div className="flex flex-wrap gap-1.5">
             {layers.map((layer) => (
-              <span key={layer.name} className={`${CHIP} ${layer.status === "hit" ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}>
+              <span
+                key={layer.name}
+                className={`${CHIP} ${layer.status === "hit" ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}
+              >
                 {layer.label}: {layer.status}
               </span>
             ))}
@@ -319,7 +386,7 @@ function TraceCard({ trace, live }) {
             ))}
           </div>
         )}
-        {cacheWrite?.detail && <p className="text-[11px] text-indigo-500 dark:text-indigo-400">{cacheWrite.detail}</p>}
+        {cacheWrite?.detail && <p className="m-0 text-[11px] text-indigo-500 dark:text-indigo-400">{cacheWrite.detail}</p>}
       </div>
     </details>
   );
