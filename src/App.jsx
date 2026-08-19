@@ -39,7 +39,23 @@ const STEP_LABELS = {
   generate: "Answer generator",
   title: "Auto title",
   followups: "Follow-ups",
+  orchestrator: "Root agent",
+  assistant: "Assistant agent",
+  researcher: "Researcher agent",
+  draft: "Draft agent",
+  document_creator: "Document agent",
+  lawyer_finder: "Lawyer finder",
 };
+
+const AGENT_LABELS = {
+  assistant: "Assistant",
+  researcher: "Researcher",
+  draft: "Draft",
+  document_creator: "Document Creator",
+  lawyer_finder: "Lawyer Finder",
+};
+
+const GUEST_MODE_KEY = "legal_assist_guest";
 
 const UPLOAD_STEP_LABELS = {
   receive: "Receive file",
@@ -137,19 +153,21 @@ function UploadPanel({ job, view, onView }) {
   );
 }
 
-function AnalysisChips({ analysis, cached }) {
-  if (!analysis) return null;
+function AnalysisChips({ analysis, cached, routedTo }) {
+  if (!analysis && !routedTo) return null;
   const chips = [
-    analysis.intent,
-    analysis.domain,
-    analysis.complexity,
-    analysis.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
+    routedTo ? `agent: ${AGENT_LABELS[routedTo] || routedTo}` : null,
+    analysis?.intent,
+    analysis?.domain,
+    analysis?.complexity,
+    analysis?.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
   ].filter(Boolean);
   return (
     <div className="analyser compact">
       <div className="chips">
         {cached && <span className="hit">cached</span>}
-        {chips.map((chip) => (
+        {routedTo && <span className="agent-badge">{AGENT_LABELS[routedTo] || routedTo}</span>}
+        {chips.filter(c => c !== `agent: ${AGENT_LABELS[routedTo] || routedTo}`).map((chip) => (
           <span key={chip}>{chip}</span>
         ))}
       </div>
@@ -352,11 +370,12 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   );
 }
 
-function AuthScreen({ onAuthed }) {
+function AuthScreen({ onAuthed, onGuest }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [role, setRole] = useState("user");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -366,14 +385,19 @@ function AuthScreen({ onAuthed }) {
     setError("");
     try {
       const path = mode === "login" ? "/auth/login" : "/auth/register";
+      const body = mode === "login"
+        ? { email, password }
+        : { email, password, name, role };
       const res = await fetch(`${API}${path}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || "Auth failed");
       localStorage.setItem("legal_assist_token", data.token);
+      localStorage.setItem("legal_assist_role", data.user?.role || "user");
+      localStorage.removeItem(GUEST_MODE_KEY);
       onAuthed(data);
     } catch (err) {
       setError(err.message);
@@ -391,10 +415,23 @@ function AuthScreen({ onAuthed }) {
         </div>
         <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
         {mode === "register" && (
-          <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
-          </label>
+          <>
+            <label>
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+            </label>
+            <label>
+              Role
+              <select
+                className="role-select"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              >
+                <option value="user">User</option>
+                <option value="lawyer">Lawyer</option>
+              </select>
+            </label>
+          </>
         )}
         <label>
           Email
@@ -425,6 +462,17 @@ function AuthScreen({ onAuthed }) {
           onClick={() => setMode(mode === "login" ? "register" : "login")}
         >
           {mode === "login" ? "Need an account?" : "Have an account?"}
+        </button>
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
+        <button
+          type="button"
+          className="guest-btn"
+          onClick={onGuest}
+        >
+          Continue as Guest
+          <small>Limited to 3 messages · No sign-up required</small>
         </button>
       </form>
     </div>
@@ -465,6 +513,10 @@ function Profile({ user, journeys, token, onBack, onUser }) {
           <dd>{user?.email}</dd>
         </div>
         <div>
+          <dt>Role</dt>
+          <dd><span className="role-badge">{user?.role || "user"}</span></dd>
+        </div>
+        <div>
           <dt>User ID</dt>
           <dd>{user?.user_id}</dd>
         </div>
@@ -493,8 +545,15 @@ function Profile({ user, journeys, token, onBack, onUser }) {
 
 export default function App() {
   const [theme, setTheme] = useState(readTheme);
-  const [token, setToken] = useState(() => localStorage.getItem("legal_assist_token") || "");
+  const [token, setToken] = useState(() => {
+    const saved = localStorage.getItem("legal_assist_token");
+    if (saved) return saved;
+    if (localStorage.getItem(GUEST_MODE_KEY)) return "guest";
+    return "";
+  });
   const [user, setUser] = useState(null);
+  const [guestMode, setGuestMode] = useState(() => !!localStorage.getItem(GUEST_MODE_KEY));
+  const [guestCount, setGuestCount] = useState(0);
   const [journeys, setJourneys] = useState([]);
   const [journeyId, setJourneyId] = useState("");
   const [view, setView] = useState("chat");
@@ -532,7 +591,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || guestMode) return;
     fetch(`${API}/auth/me`, { headers: authHeaders(token) })
       .then((res) => {
         if (res.status === 401) {
@@ -550,10 +609,10 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, [token]);
+  }, [token, guestMode]);
 
   useEffect(() => {
-    if (!token || !journeyId) return;
+    if (!token || !journeyId || guestMode) return;
     fetch(`${API}/journeys/${journeyId}`, { headers: authHeaders(token) })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -572,7 +631,7 @@ export default function App() {
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => data?.documents && setDocs(data.documents))
       .catch(() => {});
-  }, [token, journeyId]);
+  }, [token, journeyId, guestMode]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -580,11 +639,24 @@ export default function App() {
 
   function logout() {
     localStorage.removeItem("legal_assist_token");
+    localStorage.removeItem("legal_assist_role");
+    localStorage.removeItem(GUEST_MODE_KEY);
     setToken("");
     setUser(null);
+    setGuestMode(false);
+    setGuestCount(0);
     setJourneys([]);
     setJourneyId("");
     setMessages([]);
+    setView("chat");
+  }
+
+  function startGuest() {
+    localStorage.setItem(GUEST_MODE_KEY, "1");
+    setGuestMode(true);
+    setGuestCount(0);
+    setToken("guest");
+    setUser({ name: "Guest", email: "guest@local", role: "guest", user_id: "guest" });
     setView("chat");
   }
 
@@ -821,12 +893,66 @@ export default function App() {
   async function send(event, preset) {
     if (event?.preventDefault) event.preventDefault();
     const text = (preset ?? input).trim();
-    if (!text || phase !== "idle" || !journeyId) return;
+    if (!text || phase !== "idle") return;
+
+    // Guest mode: use /chat/guest endpoint
+    if (guestMode) {
+      if (guestCount >= 3) {
+        setError("Guest mode is limited to 3 messages. Please sign up for full access.");
+        return;
+      }
+      const history = [...messages, { role: "user", content: text }];
+      setMessages([
+        ...history,
+        { role: "assistant", content: "", analysis: null, routedTo: null, trace: { thinking: "Starting…", steps: [] } },
+      ]);
+      setInput("");
+      setPhase("analysing");
+      setError("");
+      setFollowups([]);
+
+      const updateAssistant = (patch) => {
+        setMessages((current) => {
+          const next = [...current];
+          const last = next[next.length - 1];
+          if (!last || last.role !== "assistant") return current;
+          const applied = typeof patch === "function" ? patch(last) : patch;
+          next[next.length - 1] = { ...last, ...applied };
+          return next;
+        });
+      };
+
+      try {
+        const res = await fetch(`${API}/chat/guest`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.detail || "Request failed");
+        updateAssistant({
+          content: data.reply || "",
+          analysis: data.analysis || null,
+          routedTo: data.routed_to || null,
+          trace: { thinking: "Done.", steps: [] },
+        });
+        setGuestCount((c) => c + 1);
+        setPhase("idle");
+      } catch (err) {
+        setError(err.message || "Could not reach the assistant");
+        setPhase("idle");
+      } finally {
+        inputRef.current?.focus();
+      }
+      return;
+    }
+
+    if (!journeyId) return;
 
     const history = [...messages, { role: "user", content: text }];
     setMessages([
       ...history,
-      { role: "assistant", content: "", analysis: null, memoryLayers: [], trace: { thinking: "Starting…", steps: [], cache: null } },
+      { role: "assistant", content: "", analysis: null, routedTo: null, trace: { thinking: "Starting…", steps: [], cache: null } },
     ]);
     setInput("");
     setPhase("analysing");
@@ -845,7 +971,7 @@ export default function App() {
     };
 
     try {
-      const res = await fetch(`${API}/chat/stream`, {
+      const res = await fetch(`${API}/chat/stream/v2`, {
         method: "POST",
         headers: authHeaders(token),
         body: JSON.stringify({
@@ -894,6 +1020,12 @@ export default function App() {
                 cache: prev.trace?.cache || evt.report,
               },
             }));
+          } else if (evt.type === "agent_route") {
+            updateAssistant({
+              routedTo: evt.routed_to || null,
+              analysis: evt.analysis || null,
+            });
+            setPhase("writing");
           } else if (evt.type === "memory") {
             setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
             updateAssistant((prev) => ({
@@ -955,7 +1087,7 @@ export default function App() {
         >
           {theme === "dark" ? "Light" : "Dark"}
         </button>
-        <AuthScreen onAuthed={onAuthed} />
+        <AuthScreen onAuthed={onAuthed} onGuest={startGuest} />
       </div>
     );
   }
@@ -970,97 +1102,110 @@ export default function App() {
           <span className="brand-mark">L</span>
           Legal Assist
         </div>
-        <button type="button" className="new-chat" onClick={newJourney}>
-          + New chat
-        </button>
-        <button
-          type="button"
-          className={`nav-btn ${view === "memory" ? "active" : ""}`}
-          onClick={() => {
-            setView("memory");
-            setSidebarOpen(false);
-          }}
-        >
-          Memory
-        </button>
-        <div className="journey-heading">
-          <p className="journey-label">Chats</p>
-          <button
-            type="button"
-            className="delete-all-btn"
-            disabled={busy || !journeys.length}
-            onClick={deleteAllJourneys}
-          >
-            Delete all
-          </button>
-        </div>
-        <ul className="journey-list">
-          {journeys.map((item) => (
-            <li key={item.journey_id} className={item.journey_id === journeyId ? "active" : ""}>
-              {editingId === item.journey_id ? (
-                <form
-                  className="rename-row"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    renameCurrent(item.journey_id, editTitle);
-                  }}
-                >
-                  <input
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    autoFocus
-                    onBlur={() => renameCurrent(item.journey_id, editTitle)}
-                  />
-                </form>
-              ) : (
-                <div className="chat-row">
-                  <button
-                    type="button"
-                    className="chat-open"
-                    onClick={() => {
-                      setJourneyId(item.journey_id);
-                      setFollowups([]);
-                      setView("chat");
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <strong>{item.title}</strong>
-                  </button>
-                  <details className="chat-menu">
-                    <summary aria-label={`Chat options for ${item.title || "chat"}`}>
-                      {"\u22ee"}
-                    </summary>
-                    <div className="chat-menu-popover">
+        {guestMode ? (
+          <div className="guest-sidebar-info">
+            <p>Guest Mode</p>
+            <small>Sign up for full access: memory, file uploads, and unlimited chats.</small>
+          </div>
+        ) : (
+          <>
+            <button type="button" className="new-chat" onClick={newJourney}>
+              + New chat
+            </button>
+            <button
+              type="button"
+              className={`nav-btn ${view === "memory" ? "active" : ""}`}
+              onClick={() => {
+                setView("memory");
+                setSidebarOpen(false);
+              }}
+            >
+              Memory
+            </button>
+          </>
+        )}
+        {!guestMode && (
+          <>
+            <div className="journey-heading">
+              <p className="journey-label">Chats</p>
+              <button
+                type="button"
+                className="delete-all-btn"
+                disabled={busy || !journeys.length}
+                onClick={deleteAllJourneys}
+              >
+                Delete all
+              </button>
+            </div>
+            <ul className="journey-list">
+              {journeys.map((item) => (
+                <li key={item.journey_id} className={item.journey_id === journeyId ? "active" : ""}>
+                  {editingId === item.journey_id ? (
+                    <form
+                      className="rename-row"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        renameCurrent(item.journey_id, editTitle);
+                      }}
+                    >
+                      <input
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        autoFocus
+                        onBlur={() => renameCurrent(item.journey_id, editTitle)}
+                      />
+                    </form>
+                  ) : (
+                    <div className="chat-row">
                       <button
                         type="button"
+                        className="chat-open"
                         onClick={() => {
-                          setEditingId(item.journey_id);
-                          setEditTitle(item.title || "");
+                          setJourneyId(item.journey_id);
+                          setFollowups([]);
+                          setView("chat");
+                          setSidebarOpen(false);
                         }}
                       >
-                        Rename
+                        <strong>{item.title}</strong>
                       </button>
-                      <button
-                        type="button"
-                        className="delete-action"
-                        disabled={busy}
-                        onClick={() => deleteJourney(item.journey_id)}
-                      >
-                        Delete
-                      </button>
+                      <details className="chat-menu">
+                        <summary aria-label={`Chat options for ${item.title || "chat"}`}>
+                          {"\u22ee"}
+                        </summary>
+                        <div className="chat-menu-popover">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingId(item.journey_id);
+                              setEditTitle(item.title || "");
+                            }}
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            className="delete-action"
+                            disabled={busy}
+                            onClick={() => deleteJourney(item.journey_id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </details>
                     </div>
-                  </details>
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
         <div className="sidebar-foot">
-          <button type="button" className="user-chip" onClick={() => setView("profile")}>
+          <button type="button" className="user-chip" onClick={() => guestMode ? logout() : setView("profile")}>
             <span className="avatar">{initial}</span>
             <span>
               <strong>{user?.name || "Account"}</strong>
-              <small>{user?.email}</small>
+              <small>{guestMode ? "Guest mode" : user?.email}</small>
             </span>
           </button>
         </div>
@@ -1071,18 +1216,25 @@ export default function App() {
           <button type="button" className="ghost mobile-only" onClick={() => setSidebarOpen((v) => !v)}>
             Menu
           </button>
-          <h1>{journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}</h1>
+          <h1>
+            {guestMode
+              ? "Guest Chat"
+              : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
+          </h1>
           <div className="top-actions">
+            {guestMode && (
+              <span className="guest-badge">{guestCount}/3 messages</span>
+            )}
             <button type="button" className="ghost" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
               {theme === "dark" ? "Light" : "Dark"}
             </button>
             <button type="button" className="ghost" onClick={logout}>
-              Log out
+              {guestMode ? "Exit guest" : "Log out"}
             </button>
           </div>
         </header>
 
-        {view === "profile" ? (
+        {!guestMode && view === "profile" ? (
           <Profile
             user={user}
             journeys={journeys}
@@ -1090,7 +1242,7 @@ export default function App() {
             onBack={() => setView("chat")}
             onUser={setUser}
           />
-        ) : view === "memory" ? (
+        ) : !guestMode && view === "memory" ? (
           <MemoryDetail
             token={token}
             journeyId={journeyId}
@@ -1106,8 +1258,12 @@ export default function App() {
               <div className="thread-inner">
                 {messages.length === 0 && (
                   <div className="empty">
-                    <h2>What can I help with?</h2>
-                    <p>Ask a legal question. Memory stays on this journey.</p>
+                    <h2>{guestMode ? "Guest Mode" : "What can I help with?"}</h2>
+                    <p>
+                      {guestMode
+                        ? `Ask up to 3 legal questions. Sign up for unlimited access.`
+                        : "Ask a legal question. Memory stays on this journey."}
+                    </p>
                   </div>
                 )}
                 {messages.map((msg, i) => (
@@ -1121,7 +1277,11 @@ export default function App() {
                         />
                       )}
                       {msg.role === "assistant" && (
-                        <AnalysisChips analysis={msg.analysis} cached={msg.trace?.cache?.status === "hit"} />
+                        <AnalysisChips
+                          analysis={msg.analysis}
+                          cached={msg.trace?.cache?.status === "hit"}
+                          routedTo={msg.routedTo}
+                        />
                       )}
                       <p>
                         {msg.content ||
@@ -1179,20 +1339,24 @@ export default function App() {
                   accept=".pdf,.docx,.txt,.md,.csv,.png,.jpg,.jpeg,.webp,.gif,application/pdf,text/plain,image/*"
                   onChange={uploadFile}
                 />
-                <button
-                  type="button"
-                  className="attach"
-                  disabled={!!uploadJob?.running || !journeyId}
-                  onClick={() => fileRef.current?.click()}
-                  aria-label="Upload PDF, Word, text, or image"
-                >
-                  +
-                </button>
+                {!guestMode && (
+                  <button
+                    type="button"
+                    className="attach"
+                    disabled={!!uploadJob?.running || !journeyId}
+                    onClick={() => fileRef.current?.click()}
+                    aria-label="Upload PDF, Word, text, or image"
+                  >
+                    +
+                  </button>
+                )}
                 <textarea
                   ref={inputRef}
                   rows={1}
                   value={input}
-                  placeholder="Ask anything, or attach a file (max 5 MB)"
+                  placeholder={guestMode
+                    ? `Ask a legal question (${3 - guestCount} remaining)`
+                    : "Ask anything, or attach a file (max 5 MB)"}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
@@ -1206,7 +1370,9 @@ export default function App() {
                 </button>
               </form>
               <p className="hint">
-                PDF, DOCX, text, image · max 5 MB · original saved in MongoDB GridFS · vectors in Qdrant
+                {guestMode
+                  ? "Guest mode · No file upload · 3 messages max · Sign up for full access"
+                  : "PDF, DOCX, text, image · max 5 MB · original saved in MongoDB GridFS · vectors in Qdrant"}
               </p>
             </div>
           </>
