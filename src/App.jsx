@@ -89,6 +89,9 @@ const STEP_LABELS = {
   compress: "Context compression",
   fast_path: "Greeting fast-path",
   memory_write: "Memory save",
+  cache_exact: "Exact-match cache",
+  cache_semantic: "Semantic cache",
+  cache_write: "Cache save",
 };
 
 const AGENT_LABELS = {
@@ -128,7 +131,7 @@ function lastUniqueSteps(steps) {
 }
 
 function stepTone(status) {
-  if (status === "done" || status === "hit")
+  if (status === "done" || status === "hit" || status === "cached")
     return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
   if (status === "running") return "animate-pulse border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400";
   if (status === "error") return "border-red-500/40 bg-red-500/10 text-danger";
@@ -138,11 +141,19 @@ function stepTone(status) {
 const STATUS_META = {
   done: { icon: "✓", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
   hit: { icon: "✓", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  cached: { icon: "⚡", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
   running: { icon: "●", cls: "animate-pulse border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400" },
   error: { icon: "✕", cls: "border-red-500/50 bg-red-500/15 text-danger" },
   miss: { icon: "○", cls: "border-line bg-elev text-faint" },
   skip: { icon: "↷", cls: "border-line bg-elev text-faint" },
 };
+
+function fmtWhen(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour12: false });
+}
 
 function ProgressBar({ pct, tone }) {
   const fill =
@@ -366,24 +377,37 @@ function TraceCard({ trace, live }) {
           </p>
         )}
         {!!layers.length && (
-          <div className="flex flex-wrap gap-1.5">
-            {layers.map((layer) => (
-              <span
-                key={layer.name}
-                className={`${CHIP} ${layer.status === "hit" ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}
-              >
-                {layer.label}: {layer.status}
-              </span>
-            ))}
+          <div>
+            <p className="m-0 mb-1 text-[10px] font-bold uppercase tracking-wide text-faint">🗂 Memory reads</p>
+            <div className="flex flex-wrap gap-1.5">
+              {layers.map((layer) => (
+                <span
+                  key={layer.name}
+                  title={`${layer.detail || ""} · ${layer.store || ""}`}
+                  className={`${CHIP} ${layer.status === "hit" ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}
+                >
+                  {layer.label}: {layer.status}
+                  {layer.when ? ` · ${fmtWhen(layer.when)}` : ""}
+                </span>
+              ))}
+            </div>
           </div>
         )}
         {!!writes.length && (
-          <div className="flex flex-wrap gap-1.5">
-            {writes.map((write) => (
-              <span key={write.name || write.store} className={CHIP}>
-                {write.label || write.name}: {write.wrote ? "ok" : "skip"}
-              </span>
-            ))}
+          <div>
+            <p className="m-0 mb-1 text-[10px] font-bold uppercase tracking-wide text-faint">💾 Memory writes</p>
+            <div className="flex flex-wrap gap-1.5">
+              {writes.map((write) => (
+                <span
+                  key={write.name || write.store}
+                  title={write.detail || ""}
+                  className={`${CHIP} ${write.wrote ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}
+                >
+                  {write.label || write.name}: {write.wrote ? "saved" : "skip"}
+                  {write.when ? ` · ${fmtWhen(write.when)}` : ""}
+                </span>
+              ))}
+            </div>
           </div>
         )}
         {cacheWrite?.detail && <p className="m-0 text-[11px] text-indigo-500 dark:text-indigo-400">{cacheWrite.detail}</p>}
