@@ -1136,11 +1136,11 @@
 /* ── Markdown content in chat ── */
 .md-content {
   font-size: inherit;
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .md-content p {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
 }
 
 .md-content p:last-child {
@@ -1149,12 +1149,13 @@
 
 .md-content ul,
 .md-content ol {
-  margin: 6px 0;
-  padding-left: 22px;
+  margin: 2px 0;
+  padding-left: 20px;
 }
 
 .md-content li {
-  margin: 3px 0;
+  margin: 1px 0;
+  line-height: 1.45;
 }
 
 .md-content strong {
@@ -1174,9 +1175,9 @@
 }
 
 .md-content pre {
-  margin: 8px 0;
-  padding: 10px 14px;
-  border-radius: 8px;
+  margin: 4px 0;
+  padding: 8px 12px;
+  border-radius: 6px;
   background: var(--elev);
   overflow-x: auto;
 }
@@ -1187,8 +1188,8 @@
 }
 
 .md-content blockquote {
-  margin: 8px 0;
-  padding: 4px 14px;
+  margin: 4px 0;
+  padding: 2px 12px;
   border-left: 3px solid var(--accent);
   color: var(--muted);
 }
@@ -1196,7 +1197,7 @@
 .md-content h1,
 .md-content h2,
 .md-content h3 {
-  margin: 10px 0 4px;
+  margin: 6px 0 2px;
   font-weight: 600;
 }
 
@@ -1205,7 +1206,7 @@
 .md-content h3 { font-size: 1.05em; }
 
 .md-content hr {
-  margin: 10px 0;
+  margin: 6px 0;
   border: 0;
   border-top: 1px solid var(--line);
 }
