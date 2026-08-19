@@ -1,8 +1,47 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
-import "./App.css";
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+
+/* ── Shared Tailwind class recipes ── */
+const BTN_GHOST =
+  "cursor-pointer rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-elev hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
+const BTN_GRADIENT =
+  "cursor-pointer rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
+const INPUT_FIELD =
+  "mt-1 w-full rounded-lg border border-line bg-app px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/30";
+const CHIP =
+  "rounded-full border border-line bg-elev px-2 py-0.5 text-[11px] text-muted";
+const SUMMARY = "cursor-pointer select-none font-semibold";
+
+/* ── Markdown renderer styling (Tailwind only) ── */
+const MD_COMPONENTS = {
+  p: ({ node, ...props }) => <p className="mb-1.5 leading-relaxed last:mb-0" {...props} />,
+  ul: ({ node, ...props }) => <ul className="my-1.5 list-disc space-y-0.5 pl-5" {...props} />,
+  ol: ({ node, ...props }) => <ol className="my-1.5 list-decimal space-y-0.5 pl-5" {...props} />,
+  li: ({ node, ...props }) => <li className="leading-snug" {...props} />,
+  strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+  em: ({ node, ...props }) => <em className="italic" {...props} />,
+  code: ({ node, ...props }) => (
+    <code className="rounded bg-elev px-1.5 py-0.5 font-mono text-[0.9em]" {...props} />
+  ),
+  pre: ({ node, ...props }) => (
+    <pre className="my-1.5 overflow-x-auto rounded-lg bg-elev p-3 [&_code]:bg-transparent [&_code]:p-0" {...props} />
+  ),
+  blockquote: ({ node, ...props }) => (
+    <blockquote className="my-1.5 border-l-[3px] border-accent px-3 text-muted" {...props} />
+  ),
+  h1: ({ node, ...props }) => <h1 className="mb-1 mt-2 text-[1.3em] font-semibold" {...props} />,
+  h2: ({ node, ...props }) => <h2 className="mb-1 mt-2 text-[1.15em] font-semibold" {...props} />,
+  h3: ({ node, ...props }) => <h3 className="mb-1 mt-2 text-[1.05em] font-semibold" {...props} />,
+  hr: ({ node, ...props }) => <hr className="my-2 border-line" {...props} />,
+  a: ({ node, ...props }) => (
+    <a className="text-accent underline underline-offset-2" target="_blank" rel="noreferrer" {...props} />
+  ),
+  table: ({ node, ...props }) => (
+    <table className="my-2 w-full border-collapse text-sm [&_td]:border [&_td]:border-line [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-line [&_th]:bg-elev [&_th]:px-2 [&_th]:py-1" {...props} />
+  ),
+};
 
 function parseSseBuffer(buffer, onEvent) {
   const parts = buffer.split("\n\n");
@@ -85,6 +124,25 @@ function lastUniqueSteps(steps) {
   return [...seen.values()];
 }
 
+function stepTone(status) {
+  if (status === "done") return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
+  if (status === "running") return "animate-pulse border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400";
+  if (status === "error") return "border-red-500/40 bg-red-500/10 text-danger";
+  return "border-line bg-elev text-faint";
+}
+
+function ProgressBar({ pct, tone }) {
+  const fill =
+    tone === "error"
+      ? "bg-gradient-to-r from-red-500 to-rose-500"
+      : "bg-gradient-to-r from-emerald-500 to-teal-500";
+  return (
+    <div className="h-1 w-full overflow-hidden rounded-full bg-line" aria-hidden="true">
+      <span className={`block h-full rounded-full transition-all duration-300 ${fill}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 function UploadPanel({ job, view, onView }) {
   if (!job || view === "hidden") return null;
   const steps = lastUniqueSteps(job.steps);
@@ -93,65 +151,74 @@ function UploadPanel({ job, view, onView }) {
   const pct = job.error ? 100 : job.done ? 100 : Math.min(100, Math.round((doneCount / Math.max(total, 7)) * 100));
   const title = job.done ? "File ready" : job.error ? "Upload failed" : "Uploading";
   const tone = job.error ? "error" : job.done ? "done" : "running";
+  const toneClass =
+    tone === "error"
+      ? "border-red-500/40"
+      : tone === "done"
+        ? "border-emerald-500/40"
+        : "border-line";
+  const miniAction =
+    "cursor-pointer rounded-md px-2 py-0.5 text-[11px] text-muted transition-colors hover:bg-side-hover hover:text-ink";
   if (view === "mini") {
     return (
-      <div className={`stream-mini ${tone}`}>
-        <div className="upload-bar thin" aria-hidden="true">
-          <span style={{ width: `${pct}%` }} />
+      <div className={`mb-2 space-y-1 rounded-xl border ${toneClass} bg-elev px-3 py-2 text-xs animate-fade`}>
+        <ProgressBar pct={pct} tone={tone} />
+        <div className="flex flex-wrap items-center gap-2">
+          <strong>{title}</strong>
+          <em className="not-italic text-faint">
+            {job.filename || "file"} · {pct}%
+          </em>
+          <span className="ml-auto flex gap-1">
+            <button type="button" className={miniAction} onClick={() => onView("open")}>
+              Expand
+            </button>
+            <button type="button" className={miniAction} onClick={() => onView("hidden")}>
+              Hide
+            </button>
+          </span>
         </div>
-        <strong>{title}</strong>
-        <em>
-          {job.filename || "file"} · {pct}%
-        </em>
-        <span className="stream-actions">
-          <button type="button" onClick={() => onView("open")}>
-            Expand
-          </button>
-          <button type="button" onClick={() => onView("hidden")}>
-            Hide
-          </button>
-        </span>
       </div>
     );
   }
   return (
-    <div className={`upload-panel compact ${tone}`}>
-      <header className="stream-head">
+    <div className={`mb-2 space-y-2 rounded-2xl border ${toneClass} bg-elev p-3 text-xs animate-fade`}>
+      <header className="flex items-start justify-between gap-2">
         <div>
-          <strong>{title}</strong>
-          <em>
+          <strong className="text-sm">{title}</strong>
+          <em className="block not-italic text-faint">
             {job.filename || "file"} · {formatBytes(job.bytes)}
           </em>
         </div>
-        <span className="stream-actions">
-          <button type="button" onClick={() => onView("mini")}>
+        <span className="flex gap-1">
+          <button type="button" className={miniAction} onClick={() => onView("mini")}>
             Min
           </button>
-          <button type="button" onClick={() => onView("hidden")}>
+          <button type="button" className={miniAction} onClick={() => onView("hidden")}>
             Hide
           </button>
         </span>
       </header>
-      {job.thinking && <p className="trace-think">{job.thinking}</p>}
-      <div className="upload-bar thin" aria-hidden="true">
-        <span style={{ width: `${pct}%` }} />
-      </div>
+      {job.thinking && <p className="italic text-muted">{job.thinking}</p>}
+      <ProgressBar pct={pct} tone={tone} />
       {!!steps.length && (
-        <ol className="trace-flow compact">
+        <ol className="flex flex-wrap gap-1.5">
           {steps.map((step) => (
-            <li key={step.name} className={step.status}>
-              <strong>{UPLOAD_STEP_LABELS[step.name] || step.name}</strong>
+            <li
+              key={step.name}
+              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${stepTone(step.status)}`}
+            >
+              <strong className="font-medium">{UPLOAD_STEP_LABELS[step.name] || step.name}</strong>
               <span>{step.status}</span>
             </li>
           ))}
         </ol>
       )}
       {job.document && (
-        <p className="trace-cache write">
+        <p className="text-[11px] text-indigo-500 dark:text-indigo-400">
           MongoDB · {job.document.chunks} chunks · {job.document.embed_provider || "indexed"}
         </p>
       )}
-      {job.error && <p className="error">{job.error}</p>}
+      {job.error && <p className="text-danger">{job.error}</p>}
     </div>
   );
 }
@@ -166,14 +233,20 @@ function AnalysisChips({ analysis, cached, routedTo }) {
     analysis?.jurisdiction !== "unspecified" ? analysis.jurisdiction : null,
   ].filter(Boolean);
   return (
-    <div className="analyser compact">
-      <div className="chips">
-        {cached && <span className="hit">cached</span>}
-        {routedTo && <span className="agent-badge">{AGENT_LABELS[routedTo] || routedTo}</span>}
-        {chips.filter(c => c !== `agent: ${AGENT_LABELS[routedTo] || routedTo}`).map((chip) => (
-          <span key={chip}>{chip}</span>
+    <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+      {cached && <span className={`${CHIP} border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400`}>cached</span>}
+      {routedTo && (
+        <span className="rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 px-2 py-0.5 text-[11px] font-semibold text-white shadow-sm">
+          {AGENT_LABELS[routedTo] || routedTo}
+        </span>
+      )}
+      {chips
+        .filter((c) => c !== `agent: ${AGENT_LABELS[routedTo] || routedTo}`)
+        .map((chip) => (
+          <span key={chip} className={CHIP}>
+            {chip}
+          </span>
         ))}
-      </div>
     </div>
   );
 }
@@ -188,50 +261,66 @@ function TraceCard({ trace, live }) {
   const retrieval = trace.retrieval;
   const hits = retrieval?.hits || [];
   if (!trace.thinking && !steps.length && !cache && !layers.length && !retrieval) return null;
+  const cachePill = (status, label) => (
+    <b
+      className={`rounded-full border px-2 py-0.5 font-medium ${
+        status === "hit"
+          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+          : "border-line bg-elev text-faint"
+      }`}
+    >
+      {label} {status}
+    </b>
+  );
   return (
-    <details className="trace compact" open={!!live}>
-      <summary>
+    <details className="mb-1.5 rounded-xl border border-line bg-elev/60 text-xs" open={!!live}>
+      <summary className={`${SUMMARY} flex items-center justify-between gap-2 px-3 py-2 font-medium text-muted`}>
         <span>{live ? trace.thinking || "Streaming" : "Run"}</span>
-        <em className="trace-pills">
-          {cache && <b className={cache.status}>cache {cache.status}</b>}
-          {retrieval?.report && <b className={retrieval.report.status}>rag {retrieval.report.status}</b>}
+        <em className="flex gap-1.5 not-italic">
+          {cache && cachePill(cache.status, "cache")}
+          {retrieval?.report && cachePill(retrieval.report.status, "rag")}
         </em>
       </summary>
-      {!!steps.length && (
-        <ol className="trace-flow compact">
-          {steps.map((step) => (
-            <li key={step.name} className={step.status}>
-              <strong>{STEP_LABELS[step.name] || step.name}</strong>
-              <span>{step.status}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-      {!!hits.length && (
-        <p className="trace-cache hit">
-          {hits[0].filename} · {hits[0].score}
-          {hits.length > 1 ? ` +${hits.length - 1}` : ""}
-        </p>
-      )}
-      {!!layers.length && (
-        <div className="chips">
-          {layers.map((layer) => (
-            <span key={layer.name} className={layer.status}>
-              {layer.label}: {layer.status}
-            </span>
-          ))}
-        </div>
-      )}
-      {!!writes.length && (
-        <div className="chips">
-          {writes.map((write) => (
-            <span key={write.name || write.store}>
-              {write.label || write.name}: {write.wrote ? "ok" : "skip"}
-            </span>
-          ))}
-        </div>
-      )}
-      {cacheWrite?.detail && <p className="trace-cache write">{cacheWrite.detail}</p>}
+      <div className="space-y-2 px-3 pb-2.5">
+        {!!steps.length && (
+          <ol className="flex flex-wrap gap-1.5">
+            {steps.map((step) => (
+              <li
+                key={step.name}
+                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 ${stepTone(step.status)}`}
+              >
+                <strong className="font-medium">{STEP_LABELS[step.name] || step.name}</strong>
+                <span>{step.status}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {!!hits.length && (
+          <p className="text-[11px] text-emerald-600 dark:text-emerald-400">
+            {hits[0].filename} · {hits[0].score}
+            {hits.length > 1 ? ` +${hits.length - 1}` : ""}
+          </p>
+        )}
+        {!!layers.length && (
+          <div className="flex flex-wrap gap-1.5">
+            {layers.map((layer) => (
+              <span key={layer.name} className={`${CHIP} ${layer.status === "hit" ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400" : ""}`}>
+                {layer.label}: {layer.status}
+              </span>
+            ))}
+          </div>
+        )}
+        {!!writes.length && (
+          <div className="flex flex-wrap gap-1.5">
+            {writes.map((write) => (
+              <span key={write.name || write.store} className={CHIP}>
+                {write.label || write.name}: {write.wrote ? "ok" : "skip"}
+              </span>
+            ))}
+          </div>
+        )}
+        {cacheWrite?.detail && <p className="text-[11px] text-indigo-500 dark:text-indigo-400">{cacheWrite.detail}</p>}
+      </div>
     </details>
   );
 }
@@ -250,15 +339,15 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
 
   if (error) {
     return (
-      <section className="panel">
-        <p className="error">{error}</p>
-        <button type="button" className="ghost" onClick={onBack}>
+      <section className="mx-auto w-full max-w-3xl p-6">
+        <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">{error}</p>
+        <button type="button" className={BTN_GHOST} onClick={onBack}>
           Back
         </button>
       </section>
     );
   }
-  if (!data) return <p className="status">Loading memory…</p>;
+  if (!data) return <p className="p-6 text-sm text-muted animate-pulse">Loading memory…</p>;
 
   const stores = [
     { key: "in_memory", label: "In-memory", hint: "Process RAM" },
@@ -271,29 +360,34 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   const fileStore = data.files || {};
   const profile = data.profile || {};
 
+  const memBlock = "rounded-xl border border-line bg-elev/50";
+  const memSummary = `${SUMMARY} px-4 py-2.5 text-sm text-ink transition-colors hover:text-accent`;
+  const memBody = "space-y-1.5 px-4 pb-3 text-sm";
+  const factRow = "space-y-1 rounded-lg border border-line bg-app p-3";
+
   return (
-    <section className="panel compact">
-      <div className="panel-head">
-        <h2>Memory</h2>
-        <button type="button" className="ghost" onClick={onBack}>
+    <section className="mx-auto w-full max-w-3xl space-y-3 p-4 sm:p-6 animate-fade">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">Memory</h2>
+        <button type="button" className={BTN_GHOST} onClick={onBack}>
           Back
         </button>
       </div>
-      <p className="memory-gap">
+      <p className="text-xs text-faint">
         {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · max 5 MB · {fileStore.bucket || "files"}
       </p>
 
       {(profile.name || profile.email || profile.phone || profile.facts?.length) && (
-        <details className="mem-block" open>
-          <summary>Your Profile</summary>
-          <div className="profile-info">
+        <details className={memBlock} open>
+          <summary className={memSummary}>Your Profile</summary>
+          <div className={memBody}>
             {profile.name && <p><strong>Name:</strong> {profile.name}</p>}
             {profile.email && <p><strong>Email:</strong> {profile.email}</p>}
             {profile.phone && <p><strong>Phone:</strong> {profile.phone}</p>}
             {profile.facts?.length > 0 && (
               <div>
                 <strong>Facts:</strong>
-                <ul className="profile-facts">
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted">
                   {profile.facts.map((fact, i) => (
                     <li key={i}>{fact}</li>
                   ))}
@@ -301,7 +395,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
               </div>
             )}
             {profile.updated_at && (
-              <p className="profile-updated">
+              <p className="text-xs text-faint">
                 Last updated: {new Date(profile.updated_at).toLocaleString()}
               </p>
             )}
@@ -309,32 +403,39 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
         </details>
       )}
 
-      <div className="memory-grid four">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {stores.map((store) => {
           const item = data.stores?.[store.key] || {};
           return (
-            <article key={store.key} className={`mem-card ${item.ok ? "hit" : "error"}`}>
-              <header>
-                <strong>{store.label}</strong>
-                <em>{item.ok ? "ON" : "OFF"}</em>
+            <article
+              key={store.key}
+              className={`rounded-xl border p-3 transition-colors ${
+                item.ok ? "border-emerald-500/40 bg-emerald-500/5" : "border-red-500/30 bg-red-500/5"
+              }`}
+            >
+              <header className="flex items-center justify-between">
+                <strong className="text-sm">{store.label}</strong>
+                <em className={`not-italic text-xs font-bold ${item.ok ? "text-emerald-600 dark:text-emerald-400" : "text-danger"}`}>
+                  {item.ok ? "ON" : "OFF"}
+                </em>
               </header>
-              <p className="mem-store">{store.hint}</p>
+              <p className="mt-1 text-xs text-muted">{store.hint}</p>
             </article>
           );
         })}
       </div>
 
       {data.procedural && (
-        <details className="mem-block" open>
-          <summary>Preferences (Procedural Memory)</summary>
-          <div className="profile-info">
+        <details className={memBlock} open>
+          <summary className={memSummary}>Preferences (Procedural Memory)</summary>
+          <div className={memBody}>
             {data.procedural.language && <p><strong>Language:</strong> {data.procedural.language}</p>}
             {data.procedural.tone && <p><strong>Tone:</strong> {data.procedural.tone}</p>}
             {data.procedural.format && <p><strong>Format:</strong> {data.procedural.format}</p>}
             {data.procedural.jurisdiction && <p><strong>Jurisdiction:</strong> {data.procedural.jurisdiction}</p>}
             {data.procedural.interaction_count && <p><strong>Interactions:</strong> {data.procedural.interaction_count}</p>}
             {data.procedural.updated_at && (
-              <p className="profile-updated">
+              <p className="text-xs text-faint">
                 Last updated: {new Date(data.procedural.updated_at).toLocaleString()}
               </p>
             )}
@@ -343,29 +444,27 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
       )}
 
       {!!data.episodes?.length && (
-        <details className="mem-block">
-          <summary>Episodes ({data.episodes.length})</summary>
-          <div className="memory-facts">
+        <details className={memBlock}>
+          <summary className={memSummary}>Episodes ({data.episodes.length})</summary>
+          <div className={`${memBody} space-y-2`}>
             {data.episodes.map((ep, i) => (
-              <article key={`${ep.created_at}-${i}`} className="fact-row">
-                <header>
-                  <strong>{ep.domain || "general"}</strong>
-                  {ep.created_at && <time>{new Date(ep.created_at).toLocaleString()}</time>}
+              <article key={`${ep.created_at}-${i}`} className={factRow}>
+                <header className="flex items-center justify-between gap-2">
+                  <strong className="text-sm">{ep.domain || "general"}</strong>
+                  {ep.created_at && <time className="text-[11px] text-faint">{new Date(ep.created_at).toLocaleString()}</time>}
                 </header>
-                <p>{ep.summary || ep.query}</p>
+                <p className="text-muted">{ep.summary || ep.query}</p>
                 {ep.topics?.length > 0 && (
-                  <p className="episode-topics">
+                  <p className="flex flex-wrap gap-1">
                     {ep.topics.slice(0, 5).map((t) => (
-                      <span key={t} className="topic-tag">{t}</span>
+                      <span key={t} className="rounded-full bg-accent/10 px-2 py-0.5 text-[11px] text-accent">
+                        {t}
+                      </span>
                     ))}
                   </p>
                 )}
                 {ep.journey_id && (
-                  <button
-                    type="button"
-                    className="ghost"
-                    onClick={() => onOpenJourney(ep.journey_id)}
-                  >
+                  <button type="button" className={BTN_GHOST} onClick={() => onOpenJourney(ep.journey_id)}>
                     Open {ep.journey_id.slice(0, 8)}
                   </button>
                 )}
@@ -376,16 +475,21 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
       )}
 
       {!!data.layers?.length && (
-        <details className="mem-block" open>
-          <summary>This journey</summary>
-          <div className="memory-grid four">
+        <details className={memBlock} open>
+          <summary className={memSummary}>This journey</summary>
+          <div className="grid grid-cols-1 gap-2 px-4 pb-3 sm:grid-cols-2 lg:grid-cols-3">
             {data.layers.map((layer) => (
-              <article key={layer.name} className={`mem-card ${layer.status || "miss"}`}>
-                <header>
-                  <strong>{layer.label}</strong>
-                  <em>{layer.status || "miss"}</em>
+              <article
+                key={layer.name}
+                className={`rounded-xl border p-3 ${
+                  layer.status === "hit" ? "border-emerald-500/40 bg-emerald-500/5" : "border-line bg-app"
+                }`}
+              >
+                <header className="flex items-center justify-between">
+                  <strong className="text-sm">{layer.label}</strong>
+                  <em className="not-italic text-xs text-muted">{layer.status || "miss"}</em>
                 </header>
-                <p className="mem-store">{layer.detail}</p>
+                <p className="mt-1 text-xs text-muted">{layer.detail}</p>
               </article>
             ))}
           </div>
@@ -393,9 +497,9 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
       )}
 
       {!!data.thread?.length && (
-        <details className="mem-block">
-          <summary>Thread ({data.thread.length})</summary>
-          <div className="memory-facts">
+        <details className={memBlock}>
+          <summary className={memSummary}>Thread ({data.thread.length})</summary>
+          <div className={memBody}>
             {data.thread.map((msg, i) => (
               <p key={`${msg.role}-${i}`}>
                 <strong>{msg.role}:</strong> {msg.content.slice(0, 120)}
@@ -406,46 +510,42 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
         </details>
       )}
 
-      <details className="mem-block" open>
-        <summary>Files ({data.documents?.length || 0})</summary>
-        <div className="memory-facts">
-        {!data.documents?.length && <p>No files on this journey.</p>}
-        {data.documents?.map((doc) => (
-          <article key={doc.doc_id} className="fact-row">
-            <header>
-              <strong>{doc.filename}</strong>
-              <em>{doc.kind}</em>
-            </header>
-            <p>
-              {doc.chunks} chunks · {formatBytes(doc.bytes)}
-            </p>
-          </article>
-        ))}
+      <details className={memBlock} open>
+        <summary className={memSummary}>Files ({data.documents?.length || 0})</summary>
+        <div className={`${memBody} space-y-2`}>
+          {!data.documents?.length && <p className="text-muted">No files on this journey.</p>}
+          {data.documents?.map((doc) => (
+            <article key={doc.doc_id} className={factRow}>
+              <header className="flex items-center justify-between gap-2">
+                <strong className="truncate text-sm">{doc.filename}</strong>
+                <em className="not-italic text-xs text-faint">{doc.kind}</em>
+              </header>
+              <p className="text-muted">
+                {doc.chunks} chunks · {formatBytes(doc.bytes)}
+              </p>
+            </article>
+          ))}
         </div>
       </details>
 
-      <details className="mem-block">
-        <summary>Facts ({data.facts?.length || 0})</summary>
-        <div className="memory-facts">
-        {!data.facts?.length && <p>No saved facts yet.</p>}
-        {data.facts?.map((fact, i) => (
-          <article key={`${fact.created_at}-${i}`} className="fact-row">
-            <header>
-              <strong>{fact.domain || "general"}</strong>
-              {fact.created_at && <time>{new Date(fact.created_at).toLocaleString()}</time>}
-            </header>
-            <p>{fact.summary}</p>
-            {fact.journey_id && (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => onOpenJourney(fact.journey_id)}
-              >
-                Open {fact.journey_id.slice(0, 8)}
-              </button>
-            )}
-          </article>
-        ))}
+      <details className={memBlock}>
+        <summary className={memSummary}>Facts ({data.facts?.length || 0})</summary>
+        <div className={`${memBody} space-y-2`}>
+          {!data.facts?.length && <p className="text-muted">No saved facts yet.</p>}
+          {data.facts?.map((fact, i) => (
+            <article key={`${fact.created_at}-${i}`} className={factRow}>
+              <header className="flex items-center justify-between gap-2">
+                <strong className="text-sm">{fact.domain || "general"}</strong>
+                {fact.created_at && <time className="text-[11px] text-faint">{new Date(fact.created_at).toLocaleString()}</time>}
+              </header>
+              <p className="text-muted">{fact.summary}</p>
+              {fact.journey_id && (
+                <button type="button" className={BTN_GHOST} onClick={() => onOpenJourney(fact.journey_id)}>
+                  Open {fact.journey_id.slice(0, 8)}
+                </button>
+              )}
+            </article>
+          ))}
         </div>
       </details>
     </section>
@@ -489,75 +589,81 @@ function AuthScreen({ onAuthed, onGuest }) {
   }
 
   return (
-    <div className="auth-screen">
-      <form className="auth-card" onSubmit={submit}>
-        <div className="brand">
-          <span className="brand-mark">L</span>
-          Legal Assist
-        </div>
-        <h1>{mode === "login" ? "Welcome back" : "Create your account"}</h1>
-        {mode === "register" && (
-          <>
-            <label>
-              Name
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
-            </label>
-            <label>
-              Role
-              <select
-                className="role-select"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
-                <option value="user">User</option>
-                <option value="lawyer">Lawyer</option>
-              </select>
-            </label>
-          </>
-        )}
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-          />
-        </label>
-        {error && <p className="error">{error}</p>}
-        <button className="auth-primary" type="submit" disabled={busy}>
-          {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
-        </button>
-        <button
-          type="button"
-          className="auth-switch"
-          onClick={() => setMode(mode === "login" ? "register" : "login")}
-        >
-          {mode === "login" ? "Need an account?" : "Have an account?"}
-        </button>
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
-        <button
-          type="button"
-          className="guest-btn"
-          onClick={onGuest}
-        >
-          Continue as Guest
-          <small>Limited to 3 messages · No sign-up required</small>
-        </button>
-      </form>
-    </div>
+    <form
+      className="w-full max-w-sm space-y-3 rounded-2xl border border-line bg-elev p-6 shadow-2xl animate-rise"
+      onSubmit={submit}
+    >
+      <div className="flex items-center gap-2.5 pb-1 font-semibold">
+        <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">
+          L
+        </span>
+        Legal Assist
+      </div>
+      <h1 className="text-xl font-bold">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+      {mode === "register" && (
+        <>
+          <label className="block text-sm text-muted">
+            Name
+            <input
+              className={INPUT_FIELD}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+            />
+          </label>
+          <label className="block text-sm text-muted">
+            Role
+            <select className={INPUT_FIELD} value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="user">User</option>
+              <option value="lawyer">Lawyer</option>
+            </select>
+          </label>
+        </>
+      )}
+      <label className="block text-sm text-muted">
+        Email
+        <input
+          className={INPUT_FIELD}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </label>
+      <label className="block text-sm text-muted">
+        Password
+        <input
+          className={INPUT_FIELD}
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          minLength={6}
+        />
+      </label>
+      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      <button className={`${BTN_GRADIENT} w-full py-2.5`} type="submit" disabled={busy}>
+        {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
+      </button>
+      <button
+        type="button"
+        className="w-full cursor-pointer text-center text-sm text-muted transition-colors hover:text-ink"
+        onClick={() => setMode(mode === "login" ? "register" : "login")}
+      >
+        {mode === "login" ? "Need an account?" : "Have an account?"}
+      </button>
+      <div className="flex items-center gap-3 text-xs text-faint before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+        <span>or</span>
+      </div>
+      <button
+        type="button"
+        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-line py-2.5 text-sm transition-colors hover:bg-side-hover"
+        onClick={onGuest}
+      >
+        Continue as Guest
+        <small className="text-[11px] text-faint">Limited to 3 messages · No sign-up required</small>
+      </button>
+    </form>
   );
 }
 
@@ -582,44 +688,48 @@ function Profile({ user, journeys, token, onBack, onUser }) {
   }
 
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <h2>{user?.name || "Profile"}</h2>
-        <button type="button" className="ghost" onClick={onBack}>
+    <section className="mx-auto w-full max-w-3xl space-y-4 p-4 sm:p-6 animate-fade">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">{user?.name || "Profile"}</h2>
+        <button type="button" className={BTN_GHOST} onClick={onBack}>
           Back
         </button>
       </div>
-      <dl className="profile-grid">
+      <dl className="grid grid-cols-1 gap-3 rounded-2xl border border-line bg-elev/50 p-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
-          <dt>Email</dt>
-          <dd>{user?.email}</dd>
+          <dt className="text-xs uppercase tracking-wide text-faint">Email</dt>
+          <dd className="m-0 text-sm">{user?.email}</dd>
         </div>
         <div>
-          <dt>Role</dt>
-          <dd><span className="role-badge">{user?.role || "user"}</span></dd>
+          <dt className="text-xs uppercase tracking-wide text-faint">Role</dt>
+          <dd className="m-0">
+            <span className="rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+              {user?.role || "user"}
+            </span>
+          </dd>
         </div>
         <div>
-          <dt>User ID</dt>
-          <dd>{user?.user_id}</dd>
+          <dt className="text-xs uppercase tracking-wide text-faint">User ID</dt>
+          <dd className="m-0 text-sm">{user?.user_id}</dd>
         </div>
         <div>
-          <dt>Threads</dt>
-          <dd>{journeys.length}</dd>
+          <dt className="text-xs uppercase tracking-wide text-faint">Threads</dt>
+          <dd className="m-0 text-sm">{journeys.length}</dd>
         </div>
         <div>
-          <dt>Joined</dt>
-          <dd>{user?.created_at ? new Date(user.created_at).toLocaleString() : "—"}</dd>
+          <dt className="text-xs uppercase tracking-wide text-faint">Joined</dt>
+          <dd className="m-0 text-sm">{user?.created_at ? new Date(user.created_at).toLocaleString() : "—"}</dd>
         </div>
       </dl>
-      <form className="profile-form" onSubmit={save}>
-        <label>
+      <form className="flex flex-wrap items-end gap-3" onSubmit={save}>
+        <label className="block min-w-56 flex-1 text-sm text-muted">
           Display name
-          <input value={name} onChange={(e) => setName(e.target.value)} />
+          <input className={INPUT_FIELD} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
-        <button className="auth-primary" type="submit">
+        <button className={`${BTN_GRADIENT} px-5 py-2.5`} type="submit">
           Save profile
         </button>
-        {note && <p className="status">{note}</p>}
+        {note && <p className="w-full text-sm text-muted">{note}</p>}
       </form>
     </section>
   );
@@ -1385,10 +1495,13 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="auth-screen">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app p-4 text-ink">
+        {/* Decorative gradient blobs */}
+        <div className="pointer-events-none absolute -top-24 -left-24 size-96 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -right-24 size-96 rounded-full bg-indigo-500/15 blur-3xl" />
         <button
           type="button"
-          className="ghost auth-theme"
+          className={`${BTN_GHOST} absolute right-4 top-4`}
           onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
         >
           {theme === "dark" ? "Light" : "Dark"}
@@ -1402,25 +1515,39 @@ export default function App() {
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
-    <div className="app-frame">
-      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
-        <div className="brand">
-          <span className="brand-mark">L</span>
+    <div className="grid h-screen overflow-hidden bg-app text-ink md:grid-cols-[260px_minmax(0,1fr)]">
+      <aside
+        className={`flex-col border-r border-line bg-side px-2 pb-3 pt-2.5 ${
+          sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
+        } md:static md:flex md:w-auto md:max-w-none md:shadow-none`}
+      >
+        <div className="flex items-center gap-2.5 px-2.5 pb-3.5 pt-2.5 font-semibold">
+          <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-md shadow-emerald-500/30">
+            L
+          </span>
           Legal Assist
         </div>
         {guestMode ? (
-          <div className="guest-sidebar-info">
-            <p>Guest Mode</p>
-            <small>Sign up for full access: memory, file uploads, and unlimited chats.</small>
+          <div className="mx-1 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+            <p className="m-0 font-semibold">Guest Mode</p>
+            <small className="mt-1 block text-xs text-muted">
+              Sign up for full access: memory, file uploads, and unlimited chats.
+            </small>
           </div>
         ) : (
           <>
-            <button type="button" className="new-chat" onClick={newJourney}>
+            <button
+              type="button"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-line py-2.5 text-sm transition-colors hover:bg-side-hover"
+              onClick={newJourney}
+            >
               + New chat
             </button>
             <button
               type="button"
-              className={`nav-btn ${view === "memory" ? "active" : ""}`}
+              className={`mt-2 w-full cursor-pointer rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-side-hover ${
+                view === "memory" ? "bg-side-hover font-medium" : ""
+              }`}
               onClick={() => {
                 setView("memory");
                 setSidebarOpen(false);
@@ -1432,29 +1559,35 @@ export default function App() {
         )}
         {!guestMode && (
           <>
-            <div className="journey-heading">
-              <p className="journey-label">Chats</p>
+            <div className="flex items-center justify-between">
+              <p className="mx-3 mb-1.5 mt-4 text-[11px] uppercase tracking-wide text-faint">Chats</p>
               <button
                 type="button"
-                className="delete-all-btn"
+                className="cursor-pointer rounded-md px-1.5 py-1 text-[11px] text-faint transition-colors hover:bg-elev hover:text-danger disabled:cursor-not-allowed disabled:opacity-45"
                 disabled={busy || !journeys.length}
                 onClick={deleteAllJourneys}
               >
                 Delete all
               </button>
             </div>
-            <ul className="journey-list">
+            <ul className="m-0 flex-1 list-none overflow-auto p-0">
               {journeys.map((item) => (
-                <li key={item.journey_id} className={item.journey_id === journeyId ? "active" : ""}>
+                <li
+                  key={item.journey_id}
+                  className={`mb-0.5 rounded-xl transition-colors hover:bg-side-hover ${
+                    item.journey_id === journeyId ? "bg-side-hover" : ""
+                  }`}
+                >
                   {editingId === item.journey_id ? (
                     <form
-                      className="rename-row"
+                      className="p-1"
                       onSubmit={(e) => {
                         e.preventDefault();
                         renameCurrent(item.journey_id, editTitle);
                       }}
                     >
                       <input
+                        className="w-full rounded-lg border border-accent bg-app px-2.5 py-1.5 text-sm outline-none ring-2 ring-accent/25"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
                         autoFocus
@@ -1462,10 +1595,10 @@ export default function App() {
                       />
                     </form>
                   ) : (
-                    <div className="chat-row">
+                    <div className="flex items-center gap-0.5">
                       <button
                         type="button"
-                        className="chat-open"
+                        className="min-w-0 flex-1 cursor-pointer truncate rounded-xl border-0 bg-transparent px-3 py-2.5 text-left transition-colors hover:bg-side-hover"
                         onClick={() => {
                           setJourneyId(item.journey_id);
                           setFollowups([]);
@@ -1473,15 +1606,19 @@ export default function App() {
                           setSidebarOpen(false);
                         }}
                       >
-                        <strong>{item.title}</strong>
+                        <strong className="font-medium">{item.title}</strong>
                       </button>
-                      <details className="chat-menu">
-                        <summary aria-label={`Chat options for ${item.title || "chat"}`}>
-                          {"\u22ee"}
+                      <details className="relative shrink-0">
+                        <summary
+                          aria-label={`Chat options for ${item.title || "chat"}`}
+                          className="grid size-6 cursor-pointer place-items-center rounded-lg text-lg leading-none text-faint transition-colors hover:bg-elev hover:text-ink open:bg-elev open:text-ink"
+                        >
+                          ⋮
                         </summary>
-                        <div className="chat-menu-popover">
+                        <div className="absolute right-0 top-7 z-10 min-w-28 rounded-lg border border-line bg-elev p-1 shadow-xl animate-fade">
                           <button
                             type="button"
+                            className="w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-side-hover"
                             onClick={() => {
                               setEditingId(item.journey_id);
                               setEditTitle(item.title || "");
@@ -1491,7 +1628,7 @@ export default function App() {
                           </button>
                           <button
                             type="button"
-                            className="delete-action"
+                            className="w-full cursor-pointer rounded-md px-2 py-1.5 text-left text-[13px] text-danger transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
                             disabled={busy}
                             onClick={() => deleteJourney(item.journey_id)}
                           >
@@ -1506,43 +1643,59 @@ export default function App() {
             </ul>
           </>
         )}
-        <div className="sidebar-foot">
-          <button type="button" className="user-chip" onClick={() => guestMode ? logout() : setView("profile")}>
-            <span className="avatar">{initial}</span>
-            <span>
-              <strong>{user?.name || "Account"}</strong>
-              <small>{guestMode ? "Guest mode" : user?.email}</small>
+        <div className="mt-auto pt-2">
+          <button
+            type="button"
+            className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-side-hover"
+            onClick={() => (guestMode ? logout() : setView("profile"))}
+          >
+            <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow">
+              {initial}
+            </span>
+            <span className="min-w-0">
+              <strong className="block truncate text-sm">{user?.name || "Account"}</strong>
+              <small className="block truncate text-xs text-faint">{guestMode ? "Guest mode" : user?.email}</small>
             </span>
           </button>
         </div>
       </aside>
 
-      <div className="main">
-        <header className="topbar">
-          <button type="button" className="ghost mobile-only" onClick={() => setSidebarOpen((v) => !v)}>
+      <div className="flex h-screen min-w-0 flex-col">
+        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
+          <button
+            type="button"
+            className={`${BTN_GHOST} md:hidden`}
+            onClick={() => setSidebarOpen((v) => !v)}
+          >
             Menu
           </button>
-          <h1>
+          <h1 className="m-0 min-w-0 truncate text-base font-semibold">
             {guestMode
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="top-actions">
+          <div className="flex shrink-0 items-center gap-1.5">
             {guestMode && (
-              <span className="guest-badge">{guestCount}/3 messages</span>
+              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                {guestCount}/3 messages
+              </span>
             )}
             <button
               type="button"
-              className={`ghost agents-toggle ${showAgents ? "active" : ""}`}
+              className={`${BTN_GHOST} ${showAgents ? "bg-accent/15 text-accent" : ""}`}
               onClick={() => setShowAgents((v) => !v)}
               title="Show agents"
             >
               Agents {showAgents ? "ON" : "OFF"}
             </button>
-            <button type="button" className="ghost" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
+            <button
+              type="button"
+              className={`${BTN_GHOST} hidden sm:inline-flex`}
+              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            >
               {theme === "dark" ? "Light" : "Dark"}
             </button>
-            <button type="button" className="ghost" onClick={logout}>
+            <button type="button" className={BTN_GHOST} onClick={logout}>
               {guestMode ? "Exit guest" : "Log out"}
             </button>
           </div>
@@ -1569,37 +1722,58 @@ export default function App() {
         ) : (
           <>
             {showAgents && (
-              <div className="agents-panel">
-                <div className="agents-panel-head">
-                  <h3>Registered Agents</h3>
-                  <button type="button" className="ghost" onClick={() => setShowAgents(false)}>Hide</button>
+              <div className="border-b border-line bg-elev/40 px-4 py-3 animate-fade">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="m-0 text-sm font-semibold">Registered Agents</h3>
+                  <button type="button" className={BTN_GHOST} onClick={() => setShowAgents(false)}>
+                    Hide
+                  </button>
                 </div>
-                <div className="agents-grid">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {agents.map((agent) => (
-                    <article key={agent.name} className="agent-card">
-                      <header>
-                        <strong>{agent.name}</strong>
-                        <span className={`agent-status ${agent.name === "orchestrator" ? "root" : "specialist"}`}>
+                    <article
+                      key={agent.name}
+                      className="rounded-xl border border-line bg-app p-3 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+                    >
+                      <header className="flex items-center justify-between gap-2">
+                        <strong className="truncate text-sm capitalize">{agent.name}</strong>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
+                            agent.name === "orchestrator"
+                              ? "bg-gradient-to-r from-indigo-500 to-violet-600"
+                              : "bg-gradient-to-r from-emerald-500 to-teal-600"
+                          }`}
+                        >
                           {agent.name === "orchestrator" ? "Root" : "Specialist"}
                         </span>
                       </header>
-                      <p>{agent.description}</p>
-                      <div className="agent-handles">
+                      <p className="mb-1.5 mt-1 text-xs text-muted">{agent.description}</p>
+                      <div className="flex flex-wrap gap-1">
                         {agent.handles?.map((h) => (
-                          <span key={h}>{h}</span>
+                          <span key={h} className={CHIP}>
+                            {h}
+                          </span>
                         ))}
                       </div>
                     </article>
                   ))}
                 </div>
                 {!!connectors.length && (
-                  <details className="connectors-section" open>
-                    <summary>Connectors ({connectors.length})</summary>
-                    <div className="connectors-grid">
+                  <details className="mt-3" open>
+                    <summary className={`${SUMMARY} text-xs text-muted`}>Connectors ({connectors.length})</summary>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {connectors.map((conn) => (
-                        <div key={conn.name} className={`connector-chip ${conn.available ? "available" : "unavailable"}`}>
-                          <strong>{conn.name}</strong>
-                          <span>{conn.available ? "Available" : "Not configured"}</span>
+                        <div
+                          key={conn.name}
+                          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
+                            conn.available
+                              ? "border-emerald-500/40 bg-emerald-500/10"
+                              : "border-line bg-elev opacity-70"
+                          }`}
+                        >
+                          <span className={`size-1.5 rounded-full ${conn.available ? "bg-emerald-500" : "bg-faint"}`} />
+                          <strong className="font-medium">{conn.name}</strong>
+                          <span className="text-faint">{conn.available ? "Available" : "Not configured"}</span>
                         </div>
                       ))}
                     </div>
@@ -1607,12 +1781,14 @@ export default function App() {
                 )}
               </div>
             )}
-            <main className="thread">
-              <div className="thread-inner">
+            <main className="flex-1 overflow-auto">
+              <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
                 {messages.length === 0 && (
-                  <div className="empty">
-                    <h2>{guestMode ? "Guest Mode" : "What can I help with?"}</h2>
-                    <p>
+                  <div className="pt-16 text-center animate-fade">
+                    <h2 className="m-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 bg-clip-text text-3xl font-bold text-transparent">
+                      {guestMode ? "Guest Mode" : "What can I help with?"}
+                    </h2>
+                    <p className="mt-2 text-sm text-muted">
                       {guestMode
                         ? `Ask up to 3 legal questions. Sign up for unlimited access.`
                         : "Ask a legal question. Memory stays on this journey."}
@@ -1620,9 +1796,20 @@ export default function App() {
                   </div>
                 )}
                 {messages.map((msg, i) => (
-                  <div key={`${msg.role}-${i}`} className={`row ${msg.role}`}>
-                    {msg.role === "assistant" && <span className="avatar bot">L</span>}
-                    <div className="msg">
+                  <div
+                    key={`${msg.role}-${i}`}
+                    className={`flex animate-rise ${msg.role === "user" ? "justify-end" : "gap-2.5"}`}
+                  >
+                    {msg.role === "assistant" && (
+                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-xs font-bold text-white shadow">
+                        L
+                      </span>
+                    )}
+                    <div
+                      className={`min-w-0 max-w-[min(680px,100%)] ${
+                        msg.role === "user" ? "rounded-3xl bg-bubble px-4 py-2.5" : "flex-1 pt-0.5"
+                      }`}
+                    >
                       {msg.role === "assistant" && (
                         <TraceCard
                           trace={msg.trace}
@@ -1636,80 +1823,112 @@ export default function App() {
                           routedTo={msg.routedTo}
                         />
                       )}
-                      <p>
+                      <div className="m-0 text-[15px]">
                         {msg.content ? (
                           msg.role === "assistant" ? (
-                            <div className="md-content">
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            <div className="leading-normal">
+                              <ReactMarkdown components={MD_COMPONENTS}>{msg.content}</ReactMarkdown>
                             </div>
                           ) : (
                             msg.content
                           )
                         ) : (
-                          phase === "analysing" ? msg.trace?.thinking || "Thinking\u2026" : ""
+                          phase === "analysing" ? (
+                            <span className="text-muted animate-pulse">{msg.trace?.thinking || "Thinking…"}</span>
+                          ) : (
+                            ""
+                          )
                         )}
-                      </p>
+                      </div>
                       {msg.role === "assistant" && msg.content && (
-                        <div className="msg-bottom-actions">
+                        <div className="mt-1.5">
                           <button
                             type="button"
-                            className={`copy-btn ${copiedMsgIdx === i ? "copied" : ""}`}
+                            className={`flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-xs transition-colors ${
+                              copiedMsgIdx === i ? "text-emerald-500" : "text-faint hover:bg-elev hover:text-ink"
+                            }`}
                             onClick={() => copyMessage(msg.content, i)}
                             title={copiedMsgIdx === i ? "Copied!" : "Copy to clipboard"}
                           >
                             {copiedMsgIdx === i ? (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied</>
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                Copied
+                              </>
                             ) : (
-                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</>
+                              <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                Copy
+                              </>
                             )}
                           </button>
                         </div>
                       )}
                       {msg.role === "assistant" && msg.content && ["draft", "document_creator", "email"].includes(msg.routedTo) && (
-                        <div className="msg-actions">
-                          <div className="export-dropdown">
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <div className="relative">
                             <button
                               type="button"
-                              className="action-btn download-btn"
+                              className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-medium text-white shadow transition hover:brightness-110 active:scale-95"
                               onClick={() => setDownloadOpen(downloadOpen === `msg-${i}` ? "" : `msg-${i}`)}
                             >
-                              <span className="btn-icon">⬇</span> Download
+                              <span>⬇</span> Download
                             </button>
                             {downloadOpen === `msg-${i}` && (
-                              <div className="export-menu">
-                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "pdf", msg.analysis?.summary || "Legal Document", i)}>
-                                  <span className="fmt-icon pdf">P</span> PDF Document
+                              <div className="absolute left-0 top-full z-10 mt-1 w-44 rounded-xl border border-line bg-elev p-1 shadow-xl animate-fade">
+                                <button
+                                  type="button"
+                                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors hover:bg-side-hover"
+                                  onClick={() => handleDownloadWithFields(msg.content, "pdf", msg.analysis?.summary || "Legal Document", i)}
+                                >
+                                  <span className="grid size-5 place-items-center rounded bg-red-500 text-[10px] font-bold text-white">P</span>
+                                  PDF Document
                                 </button>
-                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "docx", msg.analysis?.summary || "Legal Document", i)}>
-                                  <span className="fmt-icon docx">W</span> Word (DOCX)
+                                <button
+                                  type="button"
+                                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors hover:bg-side-hover"
+                                  onClick={() => handleDownloadWithFields(msg.content, "docx", msg.analysis?.summary || "Legal Document", i)}
+                                >
+                                  <span className="grid size-5 place-items-center rounded bg-blue-500 text-[10px] font-bold text-white">W</span>
+                                  Word (DOCX)
                                 </button>
-                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "txt", msg.analysis?.summary || "Legal Document", i)}>
-                                  <span className="fmt-icon txt">T</span> Plain Text
+                                <button
+                                  type="button"
+                                  className="flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-colors hover:bg-side-hover"
+                                  onClick={() => handleDownloadWithFields(msg.content, "txt", msg.analysis?.summary || "Legal Document", i)}
+                                >
+                                  <span className="grid size-5 place-items-center rounded bg-neutral-500 text-[10px] font-bold text-white">T</span>
+                                  Plain Text
                                 </button>
                               </div>
                             )}
                           </div>
                           <button
                             type="button"
-                            className="action-btn mail-btn"
+                            className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-elev px-3 py-1.5 text-sm font-medium transition hover:bg-side-hover active:scale-95"
                             onClick={() => handleEmailWithFields(msg.content, i)}
                           >
-                            <span className="btn-icon">✉</span> Send Email
+                            <span>✉</span> Send Email
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
                 ))}
-                {phase === "writing" && <p className="status">Streaming…</p>}
-                {error && <p className="error">{error}</p>}
+                {phase === "writing" && <p className="text-sm text-muted animate-pulse">Streaming…</p>}
+                {error && (
+                  <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">
+                    {error}
+                  </p>
+                )}
                 {!!followups.length && phase === "idle" && (
-                  <div className="followups">
-                    <p>Follow up</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="m-0 text-xs uppercase tracking-wide text-faint">Follow up</p>
                     {followups.map((q) => (
                       <button
                         key={q}
                         type="button"
+                        className="cursor-pointer rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-sm text-accent transition hover:bg-accent/20 active:scale-95"
                         onClick={() => send(null, q)}
                       >
                         {q}
@@ -1720,29 +1939,49 @@ export default function App() {
                 <div ref={bottomRef} />
               </div>
             </main>
-            <div className="composer-wrap">
+            <div className="border-t border-line px-4 pb-3 pt-2">
               {uploadJob && uploadView === "hidden" && (
-                <button type="button" className="stream-restore" onClick={() => setUploadView("mini")}>
+                <button
+                  type="button"
+                  className="mb-2 cursor-pointer rounded-lg border border-line bg-elev px-3 py-1.5 text-xs text-muted transition-colors hover:bg-side-hover hover:text-ink"
+                  onClick={() => setUploadView("mini")}
+                >
                   Show upload · {uploadJob.filename || "file"}
                 </button>
               )}
               <UploadPanel job={uploadJob} view={uploadView} onView={setUploadView} />
               {!!docs.length && (
-                <div className="doc-chips">
+                <div className="mb-2 flex flex-wrap gap-1.5">
                   {docs.map((doc) => (
-                    <span key={doc.doc_id} className="doc-chip">
-                      <button type="button" className="doc-open" onClick={() => downloadDoc(doc)} disabled={!doc.gridfs_id}>
+                    <span
+                      key={doc.doc_id}
+                      className="flex items-center gap-1.5 rounded-full border border-line bg-elev py-1 pl-3 pr-1 text-xs"
+                    >
+                      <button
+                        type="button"
+                        className="max-w-48 cursor-pointer truncate bg-transparent font-medium transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                        onClick={() => downloadDoc(doc)}
+                        disabled={!doc.gridfs_id}
+                      >
                         {doc.filename}
                       </button>
-                      <small>{formatBytes(doc.bytes)}</small>
-                      <button type="button" onClick={() => removeDoc(doc.doc_id)} aria-label={`Remove ${doc.filename}`}>
+                      <small className="text-faint">{formatBytes(doc.bytes)}</small>
+                      <button
+                        type="button"
+                        className="grid size-5 cursor-pointer place-items-center rounded-full text-faint transition-colors hover:bg-red-500/15 hover:text-danger"
+                        onClick={() => removeDoc(doc.doc_id)}
+                        aria-label={`Remove ${doc.filename}`}
+                      >
                         ×
                       </button>
                     </span>
                   ))}
                 </div>
               )}
-              <form className="composer" onSubmit={send}>
+              <form
+                className="flex items-end gap-2 rounded-2xl border border-line bg-elev p-2 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
+                onSubmit={send}
+              >
                 <input
                   ref={fileRef}
                   type="file"
@@ -1753,7 +1992,7 @@ export default function App() {
                 {!guestMode && (
                   <button
                     type="button"
-                    className="attach"
+                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl text-lg text-muted transition-colors hover:bg-side-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={!!uploadJob?.running || !journeyId}
                     onClick={() => fileRef.current?.click()}
                     aria-label="Upload PDF, Word, text, or image"
@@ -1764,6 +2003,7 @@ export default function App() {
                 <textarea
                   ref={inputRef}
                   rows={1}
+                  className="max-h-40 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-faint"
                   value={input}
                   placeholder={guestMode
                     ? `Ask a legal question (${3 - guestCount} remaining)`
@@ -1776,11 +2016,16 @@ export default function App() {
                     }
                   }}
                 />
-                <button className="send" type="submit" disabled={busy || !input.trim()} aria-label="Send">
+                <button
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  aria-label="Send"
+                >
                   ↑
                 </button>
               </form>
-              <p className="hint">
+              <p className="mt-1.5 text-center text-[11px] text-faint">
                 {guestMode
                   ? "Guest mode · No file upload · 3 messages max · Sign up for full access"
                   : "PDF, DOCX, text, image · max 5 MB · original saved in MongoDB GridFS · vectors in Qdrant"}
@@ -1792,75 +2037,94 @@ export default function App() {
 
       {/* ── Draft Fill Agent (HITL Wizard) ── */}
       {fillModal && (
-        <div className="modal-overlay fill-overlay" onClick={wizardClose}>
-          <div className="fill-modal wizard-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="fill-modal-head">
-              <div className="fill-modal-icon">{fillModal.type === "download" ? "\uD83D\uDCC4" : "\u2709"}</div>
-              <div>
-                <h3>Draft Fill Agent</h3>
-                <p className="fill-modal-sub">
-                  I\u2019ll guide you through {fillModal.fields.length} field{fillModal.fields.length !== 1 ? "s" : ""} to personalize this {fillModal.type === "download" ? "document" : "email"}.
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={wizardClose}>
+          <div
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+              <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-xl shadow-lg shadow-emerald-500/25">
+                {fillModal.type === "download" ? "📄" : "✉"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="m-0 text-base font-bold">Draft Fill Agent</h3>
+                <p className="m-0 text-xs text-muted">
+                  I’ll guide you through {fillModal.fields.length} field{fillModal.fields.length !== 1 ? "s" : ""} to personalize this {fillModal.type === "download" ? "document" : "email"}.
                 </p>
               </div>
-              <div className="wizard-progress-badge">
+              <div className="shrink-0 rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 px-3 py-1 text-xs font-bold text-white shadow">
                 {Math.min(wizardStep + (wizardDone ? 1 : 0), fillModal.fields.length)} / {fillModal.fields.length}
               </div>
             </div>
 
-            <div className="fill-modal-body wizard-body">
-              <div className="wizard-chat" id="wizard-chat">
+            <div className="flex-1 space-y-3 overflow-auto px-5 py-4">
+              <div id="wizard-chat" className="h-60 space-y-3 overflow-auto rounded-xl border border-line bg-app p-3">
                 {wizardChat.length === 0 && !wizardDone && (
-                  <div className="wizard-welcome">
-                    <p>Hi! I\u2019ll help you fill this document step by step.</p>
-                    <p>Let\u2019s start with the first field.</p>
+                  <div className="space-y-1 text-sm text-muted animate-fade">
+                    <p className="m-0">Hi! I’ll help you fill this document step by step.</p>
+                    <p className="m-0">Let’s start with the first field.</p>
                   </div>
                 )}
                 {wizardChat.map((msg, idx) => (
-                  <div key={idx} className={`wizard-msg ${msg.role}`}>
-                    <span className="wizard-avatar">{msg.role === "agent" ? "\uD83E\uDD16" : "\uD83D\uDC64"}</span>
-                    <div className="wizard-bubble">
-                      {msg.role === "agent" ? (
-                        <span>{msg.question}</span>
-                      ) : (
-                        <span>{msg.value}</span>
-                      )}
+                  <div
+                    key={idx}
+                    className={`flex items-end gap-2 animate-rise ${msg.role === "user" ? "justify-end" : ""}`}
+                  >
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-elev text-sm">
+                      {msg.role === "agent" ? "🤖" : "👤"}
+                    </span>
+                    <div
+                      className={`relative max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                        msg.role === "agent"
+                          ? "rounded-bl-sm border border-neutral-200 bg-white text-neutral-900"
+                          : "rounded-br-sm bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow"
+                      }`}
+                    >
+                      {msg.role === "agent" ? <span>{msg.question}</span> : <span>{msg.value}</span>}
                       {msg.role === "user" && (
                         <button
                           type="button"
-                          className="wizard-edit-btn"
+                          className="ml-2 cursor-pointer text-white/80 transition-colors hover:text-white"
                           onClick={() => wizardEdit(Math.floor(idx / 2))}
                           title="Edit this answer"
                         >
-                          \u270E
+                          ✎
                         </button>
                       )}
                     </div>
                   </div>
                 ))}
                 {!wizardDone && fillModal.fields[wizardStep] && (
-                  <div className="wizard-msg agent">
-                    <span className="wizard-avatar">\uD83E\uDD16</span>
-                    <div className="wizard-bubble current-q">
-                      <strong>What is <em>{fillModal.fields[wizardStep]}</em>?</strong>
+                  <div className="flex items-end gap-2 animate-rise">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-elev text-sm">🤖</span>
+                    <div className="max-w-[75%] rounded-2xl rounded-bl-sm border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm">
+                      <strong>
+                        What is <em className="text-accent">{fillModal.fields[wizardStep]}</em>?
+                      </strong>
                     </div>
                   </div>
                 )}
                 {wizardDone && (
-                  <div className="wizard-msg agent">
-                    <span className="wizard-avatar">\uD83E\uDD16</span>
-                    <div className="wizard-bubble done-bubble">
-                      <strong>All {fillModal.fields.length} fields are filled!</strong>
-                      <p>Review the preview below, then {fillModal.type === "download" ? "download" : "continue to email"}.</p>
+                  <div className="flex items-end gap-2 animate-rise">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-full bg-elev text-sm">🤖</span>
+                    <div className="max-w-[75%] rounded-2xl rounded-bl-sm border border-emerald-500/40 bg-emerald-500/10 px-4 py-2.5 text-sm">
+                      <strong className="text-emerald-600 dark:text-emerald-400">
+                        All {fillModal.fields.length} fields are filled!
+                      </strong>
+                      <p className="m-0 mt-0.5 text-muted">
+                        Review the preview below, then {fillModal.type === "download" ? "download" : "continue to email"}.
+                      </p>
                     </div>
                   </div>
                 )}
               </div>
 
               {!wizardDone && fillModal.fields[wizardStep] && (
-                <div className="wizard-input-row">
+                <div className="flex gap-2">
                   <input
                     ref={wizardInputRef}
                     type="text"
+                    className={INPUT_FIELD.replace("mt-1 ", "")}
                     placeholder={`Enter ${fillModal.fields[wizardStep]}...`}
                     value={wizardInput}
                     onChange={(e) => setWizardInput(e.target.value)}
@@ -1869,62 +2133,99 @@ export default function App() {
                     }}
                     autoFocus
                   />
-                  <button type="button" className="wizard-send-btn" onClick={wizardAskAnswer} disabled={!wizardInput.trim()}>
-                    Next \u2192
+                  <button
+                    type="button"
+                    className={`${BTN_GRADIENT} shrink-0 px-4 py-2 text-sm`}
+                    onClick={wizardAskAnswer}
+                    disabled={!wizardInput.trim()}
+                  >
+                    Next →
                   </button>
                 </div>
               )}
 
-              <div className="wizard-fields-strip">
+              <div className="flex flex-wrap gap-1.5">
                 {fillModal.fields.map((f, i) => (
                   <button
                     key={f}
                     type="button"
-                    className={`wizard-field-chip ${fillValues[f]?.trim() ? "filled" : ""} ${i === wizardStep && !wizardDone ? "active" : ""}`}
+                    className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs transition ${
+                      fillValues[f]?.trim()
+                        ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        : "border-line bg-elev text-muted"
+                    } ${i === wizardStep && !wizardDone ? "ring-2 ring-accent/40" : ""}`}
                     onClick={() => wizardEdit(i)}
                   >
-                    <span className="chip-status">{fillValues[f]?.trim() ? "\u2713" : "\u25CB"}</span>
+                    <span className="mr-1">{fillValues[f]?.trim() ? "✓" : "○"}</span>
                     {f}
                   </button>
                 ))}
               </div>
 
-              <details className="fill-preview-section">
-                <summary>\uD83D\uDC41 Preview document</summary>
-                <div className="fill-preview draft-preview">
+              <details className="rounded-xl border border-line bg-app">
+                <summary className={`${SUMMARY} px-4 py-2.5 text-sm`}>👁 Preview document</summary>
+                <div className="max-h-64 overflow-auto border-t border-line px-6 py-4 font-serif text-sm leading-relaxed">
                   {replacePlaceholders(fillModal.content, fillValues).split("\n").map((line, i) => {
                     const t = line.trim();
                     if (!t) return <br key={i} />;
-                    if (/^#{1,2}\s/.test(t)) return <h3 key={i} className="draft-h2">{t.replace(/^#+\s*/, "")}</h3>;
-                    if (/^#{3,}\s/.test(t)) return <h4 key={i} className="draft-h3">{t.replace(/^#+\s*/, "")}</h4>;
-                    if (/^\*\*.*\*\*$/.test(t)) return <p key={i} className="draft-bold">{t.replace(/\*\*/g, "")}</p>;
-                    if (/^\d+\.\s/.test(t)) return <p key={i} className="draft-section-line">{line}</p>;
-                    if (/^[-*]\s/.test(t)) return <p key={i} className="draft-bullet">{line}</p>;
-                    return <p key={i} className="draft-line">{line}</p>;
+                    if (/^#{1,2}\s/.test(t))
+                      return (
+                        <h3 key={i} className="mb-2 mt-3 text-center text-lg font-bold">
+                          {t.replace(/^#+\s*/, "")}
+                        </h3>
+                      );
+                    if (/^#{3,}\s/.test(t))
+                      return (
+                        <h4 key={i} className="mb-1 mt-2 font-bold">
+                          {t.replace(/^#+\s*/, "")}
+                        </h4>
+                      );
+                    if (/^\*\*.*\*\*$/.test(t))
+                      return (
+                        <p key={i} className="my-1 font-bold">
+                          {t.replace(/\*\*/g, "")}
+                        </p>
+                      );
+                    if (/^\d+\.\s/.test(t)) return <p key={i} className="my-1 pl-2">{line}</p>;
+                    if (/^[-*]\s/.test(t)) return <p key={i} className="my-0.5 pl-6">{line}</p>;
+                    return <p key={i} className="my-1">{line}</p>;
                   })}
                 </div>
               </details>
             </div>
 
-            <div className="fill-modal-foot">
-              <div className="fill-progress-bar">
-                <div className="fill-progress-fill" style={{ width: `${((wizardStep + (wizardDone ? 1 : 0)) / fillModal.fields.length) * 100}%` }} />
+            <div className="space-y-3 border-t border-line px-5 py-4">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 transition-all duration-300"
+                  style={{ width: `${((wizardStep + (wizardDone ? 1 : 0)) / fillModal.fields.length) * 100}%` }}
+                />
               </div>
-              <div className="fill-modal-actions">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {wizardStep > 0 && !wizardDone && (
-                  <button type="button" className="wizard-nav-btn" onClick={wizardPrev}>\u2190 Prev</button>
+                  <button type="button" className={BTN_GHOST} onClick={wizardPrev}>
+                    ← Prev
+                  </button>
                 )}
                 {!wizardDone && (
-                  <button type="button" className="wizard-nav-btn skip" onClick={wizardSkip}>Skip \u2192</button>
+                  <button type="button" className={BTN_GHOST} onClick={wizardSkip}>
+                    Skip →
+                  </button>
                 )}
-                <button type="button" className="ghost" onClick={wizardClose}>Cancel</button>
+                <button type="button" className={BTN_GHOST} onClick={wizardClose}>
+                  Cancel
+                </button>
                 <button
                   type="button"
-                  className={`fill-confirm-btn ${allFieldsFilled() ? "" : "partial"}`}
+                  className={`cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98] ${
+                    allFieldsFilled()
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-600 shadow-emerald-500/25"
+                      : "bg-gradient-to-r from-amber-500 to-orange-600 shadow-amber-500/25"
+                  }`}
                   onClick={wizardConfirm}
                 >
                   {allFieldsFilled()
-                    ? (fillModal.type === "download" ? "\u2713 Download Now" : "\u2713 Continue to Email")
+                    ? (fillModal.type === "download" ? "✓ Download Now" : "✓ Continue to Email")
                     : (fillModal.type === "download" ? "Download as-is" : "Continue as-is")}
                 </button>
               </div>
@@ -1935,78 +2236,112 @@ export default function App() {
 
       {/* ── Mail Modal ── */}
       {mailModal && (
-        <div className="modal-overlay" onClick={() => setMailModal(false)}>
-          <div className="mail-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="mail-modal-head">
-              <h3>✉ Send Email</h3>
-              <button type="button" className="ghost" onClick={() => setMailModal(false)}>✕</button>
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={() => setMailModal(false)}>
+          <div
+            className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <h3 className="m-0 text-base font-bold">✉ Send Email</h3>
+              <button type="button" className={BTN_GHOST} onClick={() => setMailModal(false)}>
+                ✕
+              </button>
             </div>
-            <div className="mail-modal-body">
-              <label>
+            <div className="flex-1 space-y-3 overflow-auto px-5 py-4">
+              <label className="block text-sm text-muted">
                 <span>To</span>
                 <input
+                  className={INPUT_FIELD}
                   type="email"
                   placeholder="recipient@example.com (comma-separated for multiple)"
                   value={mailForm.to}
                   onChange={(e) => setMailForm({ ...mailForm, to: e.target.value })}
                 />
               </label>
-              <label>
+              <label className="block text-sm text-muted">
                 <span>Subject</span>
                 <input
+                  className={INPUT_FIELD}
                   type="text"
                   placeholder="Email subject"
                   value={mailForm.subject}
                   onChange={(e) => setMailForm({ ...mailForm, subject: e.target.value })}
                 />
               </label>
-              <details className="mail-cc-section">
-                <summary>CC / BCC</summary>
-                <label>
-                  <span>CC</span>
-                  <input
-                    type="email"
-                    placeholder="cc@example.com"
-                    value={mailForm.cc}
-                    onChange={(e) => setMailForm({ ...mailForm, cc: e.target.value })}
-                  />
-                </label>
-                <label>
-                  <span>BCC</span>
-                  <input
-                    type="email"
-                    placeholder="bcc@example.com"
-                    value={mailForm.bcc}
-                    onChange={(e) => setMailForm({ ...mailForm, bcc: e.target.value })}
-                  />
-                </label>
+              <details className="rounded-xl border border-line bg-app">
+                <summary className={`${SUMMARY} px-3 py-2 text-xs text-muted`}>CC / BCC</summary>
+                <div className="space-y-3 px-3 pb-3">
+                  <label className="block text-sm text-muted">
+                    <span>CC</span>
+                    <input
+                      className={INPUT_FIELD}
+                      type="email"
+                      placeholder="cc@example.com"
+                      value={mailForm.cc}
+                      onChange={(e) => setMailForm({ ...mailForm, cc: e.target.value })}
+                    />
+                  </label>
+                  <label className="block text-sm text-muted">
+                    <span>BCC</span>
+                    <input
+                      className={INPUT_FIELD}
+                      type="email"
+                      placeholder="bcc@example.com"
+                      value={mailForm.bcc}
+                      onChange={(e) => setMailForm({ ...mailForm, bcc: e.target.value })}
+                    />
+                  </label>
+                </div>
               </details>
-              <label>
+              <label className="block text-sm text-muted">
                 <span>Body</span>
                 <textarea
+                  className={`${INPUT_FIELD} resize-y`}
                   rows={10}
                   value={mailBody}
                   onChange={(e) => setMailBody(e.target.value)}
                 />
               </label>
             </div>
-            <div className="mail-modal-foot">
-              {mailStatus === "sending" && <span className="mail-status sending">Sending…</span>}
-              {mailStatus === "sent" && <span className="mail-status success">✓ Email sent!</span>}
-              {mailStatus && mailStatus.startsWith("error") && <span className="mail-status error">{mailStatus.replace("error: ", "")}</span>}
-              {mailStatus && !mailStatus.startsWith("error") && mailStatus !== "sending" && mailStatus !== "sent" && (
-                <span className="mail-status error">{mailStatus}</span>
+            <div className="border-t border-line px-5 py-4">
+              {mailStatus === "sending" && (
+                <span className="mb-2 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-600 dark:text-amber-400 animate-pulse">
+                  Sending…
+                </span>
               )}
-              <div className="mail-modal-actions">
-                <button type="button" className="action-btn download-btn" onClick={() => { exportContent(mailBody, "pdf", mailForm.subject || "Email"); }}>
+              {mailStatus === "sent" && (
+                <span className="mb-2 inline-block rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600 dark:text-emerald-400">
+                  ✓ Email sent!
+                </span>
+              )}
+              {mailStatus && mailStatus.startsWith("error") && (
+                <span className="mb-2 inline-block rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-danger">
+                  {mailStatus.replace("error: ", "")}
+                </span>
+              )}
+              {mailStatus && !mailStatus.startsWith("error") && mailStatus !== "sending" && mailStatus !== "sent" && (
+                <span className="mb-2 inline-block rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs text-danger">
+                  {mailStatus}
+                </span>
+              )}
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-app px-3 py-1.5 text-sm font-medium transition hover:bg-side-hover active:scale-95"
+                  onClick={() => { exportContent(mailBody, "pdf", mailForm.subject || "Email"); }}
+                >
                   ⬇ PDF
                 </button>
-                <button type="button" className="action-btn download-btn" onClick={() => { exportContent(mailBody, "docx", mailForm.subject || "Email"); }}>
+                <button
+                  type="button"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-line bg-app px-3 py-1.5 text-sm font-medium transition hover:bg-side-hover active:scale-95"
+                  onClick={() => { exportContent(mailBody, "docx", mailForm.subject || "Email"); }}
+                >
                   ⬇ DOCX
                 </button>
                 <button
                   type="button"
-                  className="action-btn send-mail-btn"
+                  className={`${BTN_GRADIENT} px-4 py-2 text-sm`}
                   disabled={mailStatus === "sending"}
                   onClick={sendMail}
                 >
