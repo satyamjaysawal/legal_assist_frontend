@@ -1676,6 +1676,216 @@
   cursor: not-allowed;
 }
 
+/* ── Copy button (ChatGPT-style) ── */
+.msg-bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 4px;
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+}
+
+.copy-btn:hover {
+  opacity: 1;
+  background: var(--elev);
+  color: var(--fg);
+}
+
+.copy-btn.copied {
+  opacity: 1;
+  color: #27ae60;
+}
+
+.copy-btn svg {
+  flex-shrink: 0;
+}
+
+/* ── Fill Fields Modal (Adobe-style) ── */
+.fill-modal {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: min(640px, 100%);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.2s ease-out;
+}
+
+.fill-modal-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.06), rgba(245, 87, 108, 0.06));
+}
+
+.fill-modal-icon {
+  font-size: 32px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.fill-modal-head h3 {
+  margin: 0 0 4px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.fill-modal-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.fill-modal-body {
+  padding: 18px 22px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.fill-fields-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.fill-field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.fill-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.fill-check {
+  font-size: 13px;
+  color: #27ae60;
+  font-weight: 700;
+}
+
+.fill-field input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  background: var(--elev);
+  color: var(--fg);
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.fill-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.fill-field input:not(:placeholder-shown) {
+  border-color: #27ae60;
+}
+
+.fill-preview-section {
+  margin-top: 18px;
+}
+
+.fill-preview-section summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.fill-preview {
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--elev);
+  border: 1px solid var(--line);
+  max-height: 250px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fill-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  border-top: 1px solid var(--line);
+  background: var(--elev);
+  border-radius: 0 0 16px 16px;
+}
+
+.fill-progress {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.fill-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fill-confirm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: #fff;
+  transition: all 0.18s ease;
+}
+
+.fill-confirm-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(56, 239, 125, 0.3);
+}
+
+.fill-confirm-btn.partial {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  opacity: 0.85;
+}
+
+.fill-confirm-btn.partial:hover {
+  box-shadow: 0 4px 14px rgba(102, 126, 234, 0.3);
+}
+
 @media (max-width: 800px) {
   .app-frame {
     grid-template-columns: 1fr;
@@ -1699,6 +1909,10 @@
 
   .memory-grid,
   .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fill-fields-grid {
     grid-template-columns: 1fr;
   }
 

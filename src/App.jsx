@@ -664,6 +664,9 @@ export default function App() {
   const [mailForm, setMailForm] = useState({ to: "", cc: "", bcc: "", subject: "" });
   const [mailStatus, setMailStatus] = useState("");
   const [downloadOpen, setDownloadOpen] = useState("");
+  const [copiedMsgIdx, setCopiedMsgIdx] = useState(-1);
+  const [fillModal, setFillModal] = useState(null);
+  const [fillValues, setFillValues] = useState({});
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -949,6 +952,84 @@ export default function App() {
     } catch (err) {
       setMailStatus(`error: ${err.message}`);
     }
+  }
+
+  /* ── Copy to clipboard ── */
+  async function copyMessage(content, idx) {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedMsgIdx(idx);
+      setTimeout(() => setCopiedMsgIdx(-1), 2000);
+    } catch { /* fallback: ignore */ }
+  }
+
+  /* ── Placeholder detection ── */
+  function detectPlaceholders(content) {
+    if (!content) return [];
+    const re = /\[([^\]\[\n]{1,60}?)\]/g;
+    const seen = new Set();
+    const fields = [];
+    let m;
+    while ((m = re.exec(content))) {
+      const raw = m[1].trim();
+      if (!raw || raw.startsWith("http") || raw.startsWith("#")) continue;
+      const key = raw.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      fields.push(raw);
+    }
+    return fields;
+  }
+
+  function replacePlaceholders(content, values) {
+    let result = content;
+    for (const [key, val] of Object.entries(values)) {
+      if (!val?.trim()) continue;
+      const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      result = result.replace(new RegExp(`\\[\\s*${escaped}\\s*\\]`, "g"), val.trim());
+    }
+    return result;
+  }
+
+  function handleDownloadWithFields(content, format, title, idx) {
+    const fields = detectPlaceholders(content);
+    if (fields.length > 0) {
+      const vals = {};
+      fields.forEach((f) => (vals[f] = ""));
+      setFillModal({ type: "download", content, format, title, fields, msgIdx: idx });
+      setFillValues(vals);
+    } else {
+      exportContent(content, format, title);
+    }
+    setDownloadOpen("");
+  }
+
+  function handleEmailWithFields(content, idx) {
+    const fields = detectPlaceholders(content);
+    if (fields.length > 0) {
+      const vals = {};
+      fields.forEach((f) => (vals[f] = ""));
+      setFillModal({ type: "email", content, fields, msgIdx: idx });
+      setFillValues(vals);
+    } else {
+      openMailModal(content);
+    }
+  }
+
+  function confirmFillFields() {
+    if (!fillModal) return;
+    const filled = replacePlaceholders(fillModal.content, fillValues);
+    if (fillModal.type === "download") {
+      exportContent(filled, fillModal.format, fillModal.title);
+    } else {
+      openMailModal(filled);
+    }
+    setFillModal(null);
+    setFillValues({});
+  }
+
+  function allFieldsFilled() {
+    return Object.values(fillValues).every((v) => v && v.trim());
   }
 
   async function removeDoc(docId) {
@@ -1497,6 +1578,22 @@ export default function App() {
                           phase === "analysing" ? msg.trace?.thinking || "Thinking\u2026" : ""
                         )}
                       </p>
+                      {msg.role === "assistant" && msg.content && (
+                        <div className="msg-bottom-actions">
+                          <button
+                            type="button"
+                            className={`copy-btn ${copiedMsgIdx === i ? "copied" : ""}`}
+                            onClick={() => copyMessage(msg.content, i)}
+                            title={copiedMsgIdx === i ? "Copied!" : "Copy to clipboard"}
+                          >
+                            {copiedMsgIdx === i ? (
+                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied</>
+                            ) : (
+                              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</>
+                            )}
+                          </button>
+                        </div>
+                      )}
                       {msg.role === "assistant" && msg.content && ["draft", "document_creator", "email"].includes(msg.routedTo) && (
                         <div className="msg-actions">
                           <div className="export-dropdown">
@@ -1509,13 +1606,13 @@ export default function App() {
                             </button>
                             {downloadOpen === `msg-${i}` && (
                               <div className="export-menu">
-                                <button type="button" onClick={() => { exportContent(msg.content, "pdf", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "pdf", msg.analysis?.summary || "Legal Document", i)}>
                                   <span className="fmt-icon pdf">P</span> PDF Document
                                 </button>
-                                <button type="button" onClick={() => { exportContent(msg.content, "docx", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "docx", msg.analysis?.summary || "Legal Document", i)}>
                                   <span className="fmt-icon docx">W</span> Word (DOCX)
                                 </button>
-                                <button type="button" onClick={() => { exportContent(msg.content, "txt", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                <button type="button" onClick={() => handleDownloadWithFields(msg.content, "txt", msg.analysis?.summary || "Legal Document", i)}>
                                   <span className="fmt-icon txt">T</span> Plain Text
                                 </button>
                               </div>
@@ -1524,7 +1621,7 @@ export default function App() {
                           <button
                             type="button"
                             className="action-btn mail-btn"
-                            onClick={() => openMailModal(msg.content)}
+                            onClick={() => handleEmailWithFields(msg.content, i)}
                           >
                             <span className="btn-icon">✉</span> Send Email
                           </button>
@@ -1621,6 +1718,67 @@ export default function App() {
           </>
         )}
       </div>
+
+      {/* ── Fill Fields Modal (Adobe-style) ── */}
+      {fillModal && (
+        <div className="modal-overlay" onClick={() => { setFillModal(null); setFillValues({}); }}>
+          <div className="fill-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="fill-modal-head">
+              <div className="fill-modal-icon">{fillModal.type === "download" ? "📄" : "✉"}</div>
+              <div>
+                <h3>Fill in the details</h3>
+                <p className="fill-modal-sub">{fillModal.fields.length} field{fillModal.fields.length !== 1 ? "s" : ""} found in this {fillModal.type === "download" ? "document" : "email"}. Fill them below to personalize before {fillModal.type === "download" ? "downloading" : "sending"}.</p>
+              </div>
+            </div>
+            <div className="fill-modal-body">
+              <div className="fill-fields-grid">
+                {fillModal.fields.map((field) => (
+                  <div className="fill-field" key={field}>
+                    <label>
+                      <span className="fill-field-label">{field}</span>
+                      {fillValues[field]?.trim() && <span className="fill-check">✓</span>}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder={`Enter ${field}`}
+                      value={fillValues[field] || ""}
+                      onChange={(e) => setFillValues({ ...fillValues, [field]: e.target.value })}
+                      onKeyDown={(e) => { if (e.key === "Enter" && allFieldsFilled()) confirmFillFields(); }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <details className="fill-preview-section">
+                <summary>Preview filled document</summary>
+                <div className="fill-preview">
+                  <ReactMarkdown>
+                    {replacePlaceholders(fillModal.content, fillValues)}
+                  </ReactMarkdown>
+                </div>
+              </details>
+            </div>
+            <div className="fill-modal-foot">
+              <span className="fill-progress">
+                {Object.values(fillValues).filter((v) => v?.trim()).length} / {fillModal.fields.length} filled
+              </span>
+              <div className="fill-modal-actions">
+                <button type="button" className="ghost" onClick={() => { setFillModal(null); setFillValues({}); }}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`fill-confirm-btn ${allFieldsFilled() ? "" : "partial"}`}
+                  onClick={confirmFillFields}
+                >
+                  {allFieldsFilled()
+                    ? (fillModal.type === "download" ? "✓ Download Now" : "✓ Continue to Email")
+                    : (fillModal.type === "download" ? "Download as-is" : "Continue as-is")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mail Modal ── */}
       {mailModal && (
