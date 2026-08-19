@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import "./App.css";
 
 const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
@@ -564,6 +565,9 @@ export default function App() {
   const [model, setModel] = useState("");
   const [memory, setMemory] = useState({ layers: [], writes: [], facts: [] });
   const [stores, setStores] = useState(null);
+  const [agents, setAgents] = useState([]);
+  const [connectors, setConnectors] = useState([]);
+  const [showAgents, setShowAgents] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [followups, setFollowups] = useState([]);
   const [editingId, setEditingId] = useState("");
@@ -586,6 +590,8 @@ export default function App() {
       .then((data) => {
         if (data?.model) setModel(data.model);
         if (data?.memory) setStores(data.memory);
+        if (data?.agents) setAgents(data.agents);
+        if (data?.connectors) setConnectors(data.connectors);
       })
       .catch(() => {});
   }, []);
@@ -1225,6 +1231,14 @@ export default function App() {
             {guestMode && (
               <span className="guest-badge">{guestCount}/3 messages</span>
             )}
+            <button
+              type="button"
+              className={`ghost agents-toggle ${showAgents ? "active" : ""}`}
+              onClick={() => setShowAgents((v) => !v)}
+              title="Show agents"
+            >
+              Agents {showAgents ? "ON" : "OFF"}
+            </button>
             <button type="button" className="ghost" onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}>
               {theme === "dark" ? "Light" : "Dark"}
             </button>
@@ -1254,6 +1268,45 @@ export default function App() {
           />
         ) : (
           <>
+            {showAgents && (
+              <div className="agents-panel">
+                <div className="agents-panel-head">
+                  <h3>Registered Agents</h3>
+                  <button type="button" className="ghost" onClick={() => setShowAgents(false)}>Hide</button>
+                </div>
+                <div className="agents-grid">
+                  {agents.map((agent) => (
+                    <article key={agent.name} className="agent-card">
+                      <header>
+                        <strong>{agent.name}</strong>
+                        <span className={`agent-status ${agent.name === "orchestrator" ? "root" : "specialist"}`}>
+                          {agent.name === "orchestrator" ? "Root" : "Specialist"}
+                        </span>
+                      </header>
+                      <p>{agent.description}</p>
+                      <div className="agent-handles">
+                        {agent.handles?.map((h) => (
+                          <span key={h}>{h}</span>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {!!connectors.length && (
+                  <details className="connectors-section" open>
+                    <summary>Connectors ({connectors.length})</summary>
+                    <div className="connectors-grid">
+                      {connectors.map((conn) => (
+                        <div key={conn.name} className={`connector-chip ${conn.available ? "available" : "unavailable"}`}>
+                          <strong>{conn.name}</strong>
+                          <span>{conn.available ? "Available" : "Not configured"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
             <main className="thread">
               <div className="thread-inner">
                 {messages.length === 0 && (
@@ -1284,8 +1337,17 @@ export default function App() {
                         />
                       )}
                       <p>
-                        {msg.content ||
-                          (phase === "analysing" ? msg.trace?.thinking || "Thinking…" : "")}
+                        {msg.content ? (
+                          msg.role === "assistant" ? (
+                            <div className="md-content">
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </div>
+                          ) : (
+                            msg.content
+                          )
+                        ) : (
+                          phase === "analysing" ? msg.trace?.thinking || "Thinking\u2026" : ""
+                        )}
                       </p>
                     </div>
                   </div>
