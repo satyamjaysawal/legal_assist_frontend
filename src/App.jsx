@@ -45,6 +45,7 @@ const STEP_LABELS = {
   researcher: "Researcher agent",
   draft: "Draft agent",
   document_creator: "Document agent",
+  email: "Email agent",
   lawyer_finder: "Lawyer finder",
 };
 
@@ -53,6 +54,7 @@ const AGENT_LABELS = {
   researcher: "Researcher",
   draft: "Draft",
   document_creator: "Document Creator",
+  email: "Email",
   lawyer_finder: "Lawyer Finder",
 };
 
@@ -578,6 +580,11 @@ export default function App() {
   const fileRef = useRef(null);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const [mailModal, setMailModal] = useState(false);
+  const [mailBody, setMailBody] = useState("");
+  const [mailForm, setMailForm] = useState({ to: "", cc: "", bcc: "", subject: "" });
+  const [mailStatus, setMailStatus] = useState("");
+  const [downloadOpen, setDownloadOpen] = useState("");
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -801,6 +808,68 @@ export default function App() {
     link.download = doc.filename || "document";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function exportContent(content, format, title) {
+    if (!content) return;
+    try {
+      const res = await fetch(`${API}/export/download`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ content, format, title: title || "Legal Document" }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Export failed");
+      }
+      const blob = await res.blob();
+      const ext = format === "pdf" ? ".pdf" : format === "docx" ? ".docx" : ".txt";
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = (title || "Legal Document").replace(/\s+/g, "_") + ext;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err.message || "Export failed");
+    }
+  }
+
+  function openMailModal(content) {
+    // Try to extract Subject from content
+    const subjectMatch = content.match(/\*?\*?Subject:?\*?\*?\s*(.+)/i);
+    const subject = subjectMatch ? subjectMatch[1].trim() : "";
+    setMailBody(content);
+    setMailForm({ to: "", cc: "", bcc: "", subject });
+    setMailStatus("");
+    setMailModal(true);
+  }
+
+  async function sendMail() {
+    if (!mailForm.to.trim()) {
+      setMailStatus("Please enter at least one recipient email.");
+      return;
+    }
+    setMailStatus("sending");
+    try {
+      const res = await fetch(`${API}/email/send`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          to: mailForm.to.split(",").map((e) => e.trim()).filter(Boolean),
+          cc: mailForm.cc ? mailForm.cc.split(",").map((e) => e.trim()).filter(Boolean) : [],
+          bcc: mailForm.bcc ? mailForm.bcc.split(",").map((e) => e.trim()).filter(Boolean) : [],
+          subject: mailForm.subject || "(No subject)",
+          body: mailBody,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Failed to send email");
+      setMailStatus("sent");
+      setTimeout(() => setMailModal(false), 1500);
+    } catch (err) {
+      setMailStatus(`error: ${err.message}`);
+    }
   }
 
   async function removeDoc(docId) {
@@ -1349,6 +1418,39 @@ export default function App() {
                           phase === "analysing" ? msg.trace?.thinking || "Thinking\u2026" : ""
                         )}
                       </p>
+                      {msg.role === "assistant" && msg.content && ["draft", "document_creator", "email"].includes(msg.routedTo) && (
+                        <div className="msg-actions">
+                          <div className="export-dropdown">
+                            <button
+                              type="button"
+                              className="action-btn download-btn"
+                              onClick={() => setDownloadOpen(downloadOpen === `msg-${i}` ? "" : `msg-${i}`)}
+                            >
+                              <span className="btn-icon">⬇</span> Download
+                            </button>
+                            {downloadOpen === `msg-${i}` && (
+                              <div className="export-menu">
+                                <button type="button" onClick={() => { exportContent(msg.content, "pdf", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                  <span className="fmt-icon pdf">P</span> PDF Document
+                                </button>
+                                <button type="button" onClick={() => { exportContent(msg.content, "docx", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                  <span className="fmt-icon docx">W</span> Word (DOCX)
+                                </button>
+                                <button type="button" onClick={() => { exportContent(msg.content, "txt", msg.analysis?.summary || "Legal Document"); setDownloadOpen(""); }}>
+                                  <span className="fmt-icon txt">T</span> Plain Text
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            className="action-btn mail-btn"
+                            onClick={() => openMailModal(msg.content)}
+                          >
+                            <span className="btn-icon">✉</span> Send Email
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1440,6 +1542,91 @@ export default function App() {
           </>
         )}
       </div>
+
+      {/* ── Mail Modal ── */}
+      {mailModal && (
+        <div className="modal-overlay" onClick={() => setMailModal(false)}>
+          <div className="mail-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="mail-modal-head">
+              <h3>✉ Send Email</h3>
+              <button type="button" className="ghost" onClick={() => setMailModal(false)}>✕</button>
+            </div>
+            <div className="mail-modal-body">
+              <label>
+                <span>To</span>
+                <input
+                  type="email"
+                  placeholder="recipient@example.com (comma-separated for multiple)"
+                  value={mailForm.to}
+                  onChange={(e) => setMailForm({ ...mailForm, to: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>Subject</span>
+                <input
+                  type="text"
+                  placeholder="Email subject"
+                  value={mailForm.subject}
+                  onChange={(e) => setMailForm({ ...mailForm, subject: e.target.value })}
+                />
+              </label>
+              <details className="mail-cc-section">
+                <summary>CC / BCC</summary>
+                <label>
+                  <span>CC</span>
+                  <input
+                    type="email"
+                    placeholder="cc@example.com"
+                    value={mailForm.cc}
+                    onChange={(e) => setMailForm({ ...mailForm, cc: e.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>BCC</span>
+                  <input
+                    type="email"
+                    placeholder="bcc@example.com"
+                    value={mailForm.bcc}
+                    onChange={(e) => setMailForm({ ...mailForm, bcc: e.target.value })}
+                  />
+                </label>
+              </details>
+              <label>
+                <span>Body</span>
+                <textarea
+                  rows={10}
+                  value={mailBody}
+                  onChange={(e) => setMailBody(e.target.value)}
+                />
+              </label>
+            </div>
+            <div className="mail-modal-foot">
+              {mailStatus === "sending" && <span className="mail-status sending">Sending…</span>}
+              {mailStatus === "sent" && <span className="mail-status success">✓ Email sent!</span>}
+              {mailStatus && mailStatus.startsWith("error") && <span className="mail-status error">{mailStatus.replace("error: ", "")}</span>}
+              {mailStatus && !mailStatus.startsWith("error") && mailStatus !== "sending" && mailStatus !== "sent" && (
+                <span className="mail-status error">{mailStatus}</span>
+              )}
+              <div className="mail-modal-actions">
+                <button type="button" className="action-btn download-btn" onClick={() => { exportContent(mailBody, "pdf", mailForm.subject || "Email"); }}>
+                  ⬇ PDF
+                </button>
+                <button type="button" className="action-btn download-btn" onClick={() => { exportContent(mailBody, "docx", mailForm.subject || "Email"); }}>
+                  ⬇ DOCX
+                </button>
+                <button
+                  type="button"
+                  className="action-btn send-mail-btn"
+                  disabled={mailStatus === "sending"}
+                  onClick={sendMail}
+                >
+                  {mailStatus === "sending" ? "Sending…" : "Send Email →"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
