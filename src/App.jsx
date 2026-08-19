@@ -667,6 +667,11 @@ export default function App() {
   const [copiedMsgIdx, setCopiedMsgIdx] = useState(-1);
   const [fillModal, setFillModal] = useState(null);
   const [fillValues, setFillValues] = useState({});
+  const [wizardStep, setWizardStep] = useState(0);
+  const [wizardInput, setWizardInput] = useState("");
+  const [wizardChat, setWizardChat] = useState([]);
+  const [wizardDone, setWizardDone] = useState(false);
+  const wizardInputRef = useRef(null);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -731,6 +736,11 @@ export default function App() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, phase, memory, uploadJob]);
+
+  useEffect(() => {
+    const el = document.getElementById("wizard-chat");
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [wizardChat, wizardStep, wizardDone]);
 
   function logout() {
     localStorage.removeItem("legal_assist_token");
@@ -1030,6 +1040,67 @@ export default function App() {
 
   function allFieldsFilled() {
     return Object.values(fillValues).every((v) => v && v.trim());
+  }
+
+  /* ── Draft Fill Agent (HITL wizard) ── */
+  function wizardAskAnswer() {
+    if (!fillModal || !wizardInput.trim()) return;
+    const field = fillModal.fields[wizardStep];
+    const value = wizardInput.trim();
+    const newValues = { ...fillValues, [field]: value };
+    setFillValues(newValues);
+    setWizardChat((prev) => [
+      ...prev,
+      { role: "agent", field, question: `What is the ${field}?` },
+      { role: "user", field, value },
+    ]);
+    setWizardInput("");
+    if (wizardStep + 1 >= fillModal.fields.length) {
+      setWizardDone(true);
+    } else {
+      setWizardStep(wizardStep + 1);
+    }
+  }
+
+  function wizardEdit(idx) {
+    setWizardStep(idx);
+    setWizardDone(false);
+    setWizardInput(fillValues[fillModal.fields[idx]] || "");
+    setWizardChat((prev) => prev.slice(0, idx * 2));
+    setTimeout(() => wizardInputRef.current?.focus(), 50);
+  }
+
+  function wizardPrev() {
+    if (wizardStep > 0) {
+      const prev = wizardStep - 1;
+      setWizardStep(prev);
+      setWizardDone(false);
+      setWizardInput(fillValues[fillModal.fields[prev]] || "");
+      setWizardChat((prevChat) => prevChat.slice(0, prev * 2));
+    }
+  }
+
+  function wizardSkip() {
+    if (!fillModal) return;
+    if (wizardStep + 1 >= fillModal.fields.length) {
+      setWizardDone(true);
+    } else {
+      setWizardStep(wizardStep + 1);
+    }
+  }
+
+  function wizardClose() {
+    setFillModal(null);
+    setFillValues({});
+    setWizardStep(0);
+    setWizardInput("");
+    setWizardChat([]);
+    setWizardDone(false);
+  }
+
+  function wizardConfirm() {
+    confirmFillFields();
+    wizardClose();
   }
 
   async function removeDoc(docId) {
@@ -1719,59 +1790,141 @@ export default function App() {
         )}
       </div>
 
-      {/* ── Fill Fields Modal (Adobe-style) ── */}
+      {/* ── Draft Fill Agent (HITL Wizard) ── */}
       {fillModal && (
-        <div className="modal-overlay" onClick={() => { setFillModal(null); setFillValues({}); }}>
-          <div className="fill-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay fill-overlay" onClick={wizardClose}>
+          <div className="fill-modal wizard-modal" onClick={(e) => e.stopPropagation()}>
             <div className="fill-modal-head">
-              <div className="fill-modal-icon">{fillModal.type === "download" ? "📄" : "✉"}</div>
+              <div className="fill-modal-icon">{fillModal.type === "download" ? "\uD83D\uDCC4" : "\u2709"}</div>
               <div>
-                <h3>Fill in the details</h3>
-                <p className="fill-modal-sub">{fillModal.fields.length} field{fillModal.fields.length !== 1 ? "s" : ""} found in this {fillModal.type === "download" ? "document" : "email"}. Fill them below to personalize before {fillModal.type === "download" ? "downloading" : "sending"}.</p>
+                <h3>Draft Fill Agent</h3>
+                <p className="fill-modal-sub">
+                  I\u2019ll guide you through {fillModal.fields.length} field{fillModal.fields.length !== 1 ? "s" : ""} to personalize this {fillModal.type === "download" ? "document" : "email"}.
+                </p>
+              </div>
+              <div className="wizard-progress-badge">
+                {Math.min(wizardStep + (wizardDone ? 1 : 0), fillModal.fields.length)} / {fillModal.fields.length}
               </div>
             </div>
-            <div className="fill-modal-body">
-              <div className="fill-fields-grid">
-                {fillModal.fields.map((field) => (
-                  <div className="fill-field" key={field}>
-                    <label>
-                      <span className="fill-field-label">{field}</span>
-                      {fillValues[field]?.trim() && <span className="fill-check">✓</span>}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder={`Enter ${field}`}
-                      value={fillValues[field] || ""}
-                      onChange={(e) => setFillValues({ ...fillValues, [field]: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === "Enter" && allFieldsFilled()) confirmFillFields(); }}
-                    />
+
+            <div className="fill-modal-body wizard-body">
+              <div className="wizard-chat" id="wizard-chat">
+                {wizardChat.length === 0 && !wizardDone && (
+                  <div className="wizard-welcome">
+                    <p>Hi! I\u2019ll help you fill this document step by step.</p>
+                    <p>Let\u2019s start with the first field.</p>
+                  </div>
+                )}
+                {wizardChat.map((msg, idx) => (
+                  <div key={idx} className={`wizard-msg ${msg.role}`}>
+                    <span className="wizard-avatar">{msg.role === "agent" ? "\uD83E\uDD16" : "\uD83D\uDC64"}</span>
+                    <div className="wizard-bubble">
+                      {msg.role === "agent" ? (
+                        <span>{msg.question}</span>
+                      ) : (
+                        <span>{msg.value}</span>
+                      )}
+                      {msg.role === "user" && (
+                        <button
+                          type="button"
+                          className="wizard-edit-btn"
+                          onClick={() => wizardEdit(Math.floor(idx / 2))}
+                          title="Edit this answer"
+                        >
+                          \u270E
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
+                {!wizardDone && fillModal.fields[wizardStep] && (
+                  <div className="wizard-msg agent">
+                    <span className="wizard-avatar">\uD83E\uDD16</span>
+                    <div className="wizard-bubble current-q">
+                      <strong>What is <em>{fillModal.fields[wizardStep]}</em>?</strong>
+                    </div>
+                  </div>
+                )}
+                {wizardDone && (
+                  <div className="wizard-msg agent">
+                    <span className="wizard-avatar">\uD83E\uDD16</span>
+                    <div className="wizard-bubble done-bubble">
+                      <strong>All {fillModal.fields.length} fields are filled!</strong>
+                      <p>Review the preview below, then {fillModal.type === "download" ? "download" : "continue to email"}.</p>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {!wizardDone && fillModal.fields[wizardStep] && (
+                <div className="wizard-input-row">
+                  <input
+                    ref={wizardInputRef}
+                    type="text"
+                    placeholder={`Enter ${fillModal.fields[wizardStep]}...`}
+                    value={wizardInput}
+                    onChange={(e) => setWizardInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") wizardAskAnswer();
+                    }}
+                    autoFocus
+                  />
+                  <button type="button" className="wizard-send-btn" onClick={wizardAskAnswer} disabled={!wizardInput.trim()}>
+                    Next \u2192
+                  </button>
+                </div>
+              )}
+
+              <div className="wizard-fields-strip">
+                {fillModal.fields.map((f, i) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className={`wizard-field-chip ${fillValues[f]?.trim() ? "filled" : ""} ${i === wizardStep && !wizardDone ? "active" : ""}`}
+                    onClick={() => wizardEdit(i)}
+                  >
+                    <span className="chip-status">{fillValues[f]?.trim() ? "\u2713" : "\u25CB"}</span>
+                    {f}
+                  </button>
+                ))}
+              </div>
+
               <details className="fill-preview-section">
-                <summary>Preview filled document</summary>
-                <div className="fill-preview">
-                  <ReactMarkdown>
-                    {replacePlaceholders(fillModal.content, fillValues)}
-                  </ReactMarkdown>
+                <summary>\uD83D\uDC41 Preview document</summary>
+                <div className="fill-preview draft-preview">
+                  {replacePlaceholders(fillModal.content, fillValues).split("\n").map((line, i) => {
+                    const t = line.trim();
+                    if (!t) return <br key={i} />;
+                    if (/^#{1,2}\s/.test(t)) return <h3 key={i} className="draft-h2">{t.replace(/^#+\s*/, "")}</h3>;
+                    if (/^#{3,}\s/.test(t)) return <h4 key={i} className="draft-h3">{t.replace(/^#+\s*/, "")}</h4>;
+                    if (/^\*\*.*\*\*$/.test(t)) return <p key={i} className="draft-bold">{t.replace(/\*\*/g, "")}</p>;
+                    if (/^\d+\.\s/.test(t)) return <p key={i} className="draft-section-line">{line}</p>;
+                    if (/^[-*]\s/.test(t)) return <p key={i} className="draft-bullet">{line}</p>;
+                    return <p key={i} className="draft-line">{line}</p>;
+                  })}
                 </div>
               </details>
             </div>
+
             <div className="fill-modal-foot">
-              <span className="fill-progress">
-                {Object.values(fillValues).filter((v) => v?.trim()).length} / {fillModal.fields.length} filled
-              </span>
+              <div className="fill-progress-bar">
+                <div className="fill-progress-fill" style={{ width: `${((wizardStep + (wizardDone ? 1 : 0)) / fillModal.fields.length) * 100}%` }} />
+              </div>
               <div className="fill-modal-actions">
-                <button type="button" className="ghost" onClick={() => { setFillModal(null); setFillValues({}); }}>
-                  Cancel
-                </button>
+                {wizardStep > 0 && !wizardDone && (
+                  <button type="button" className="wizard-nav-btn" onClick={wizardPrev}>\u2190 Prev</button>
+                )}
+                {!wizardDone && (
+                  <button type="button" className="wizard-nav-btn skip" onClick={wizardSkip}>Skip \u2192</button>
+                )}
+                <button type="button" className="ghost" onClick={wizardClose}>Cancel</button>
                 <button
                   type="button"
                   className={`fill-confirm-btn ${allFieldsFilled() ? "" : "partial"}`}
-                  onClick={confirmFillFields}
+                  onClick={wizardConfirm}
                 >
                   {allFieldsFilled()
-                    ? (fillModal.type === "download" ? "✓ Download Now" : "✓ Continue to Email")
+                    ? (fillModal.type === "download" ? "\u2713 Download Now" : "\u2713 Continue to Email")
                     : (fillModal.type === "download" ? "Download as-is" : "Continue as-is")}
                 </button>
               </div>
