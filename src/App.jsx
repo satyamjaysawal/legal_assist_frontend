@@ -86,6 +86,7 @@ const STEP_LABELS = {
   document_creator: "Document agent",
   email: "Email agent",
   lawyer_finder: "Lawyer finder",
+  db_chat: "Lawyer database (SQL)",
   compress: "Context compression",
   fast_path: "Greeting fast-path",
   memory_write: "Memory save",
@@ -101,6 +102,7 @@ const AGENT_LABELS = {
   document_creator: "Document Creator",
   email: "Email",
   lawyer_finder: "Lawyer Finder",
+  db_chat: "DB Chat",
 };
 
 const GUEST_MODE_KEY = "legal_assist_guest";
@@ -413,6 +415,329 @@ function TraceCard({ trace, live }) {
         {cacheWrite?.detail && <p className="m-0 text-[11px] text-indigo-500 dark:text-indigo-400">{cacheWrite.detail}</p>}
       </div>
     </details>
+  );
+}
+
+function SqlCard({ sqlInfo }) {
+  if (!sqlInfo?.sql) return null;
+  return (
+    <details className="mb-2 overflow-hidden rounded-xl border border-indigo-500/30 bg-elev/60 text-xs animate-fade" open>
+      <summary className={`${SUMMARY} flex flex-wrap items-center gap-2 px-3 py-2`}>
+        <span className="flex items-center gap-2 text-ink">
+          <span className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-indigo-500 to-violet-600 text-[10px] text-white shadow-sm">
+            🗄
+          </span>
+          Executed SQL
+        </span>
+        <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+          {sqlInfo.rowCount} row{(sqlInfo.rowCount ?? 0) !== 1 ? "s" : ""} fetched
+        </span>
+        {(sqlInfo.tables || []).map((t) => (
+          <span key={t} className={`${CHIP} border-indigo-500/30 text-indigo-500 dark:text-indigo-400`}>
+            {t}
+          </span>
+        ))}
+      </summary>
+      <div className="border-t border-line">
+        <pre className="m-0 overflow-x-auto bg-app px-3 py-2.5 font-mono text-[11.5px] leading-relaxed text-ink whitespace-pre-wrap">
+          {sqlInfo.sql}
+        </pre>
+        {!!sqlInfo.columns?.length && (
+          <p className="m-0 flex flex-wrap items-center gap-1 border-t border-line px-3 py-1.5 text-[10px] text-faint">
+            Columns:
+            {sqlInfo.columns.map((c) => (
+              <span key={c} className={CHIP}>
+                {c}
+              </span>
+            ))}
+          </p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function wsBaseUrl() {
+  if (API) return API.replace(/^http/i, "ws");
+  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
+}
+
+function LawyerChatModal({ token, userId, journeyId, onClose }) {
+  const [lawyers, setLawyers] = useState(null);
+  const [loadError, setLoadError] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [status, setStatus] = useState("idle"); // idle | connecting | live | closed | error
+  const [chat, setChat] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [wsError, setWsError] = useState("");
+  const wsRef = useRef(null);
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    fetch(`${API}/lawyers`, { headers: authHeaders(token) })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Could not load the lawyer directory"))))
+      .then((data) => setLawyers(data.lawyers || []))
+      .catch((err) => setLoadError(err.message));
+    return () => {
+      try {
+        wsRef.current?.close();
+      } catch {
+        /* already closed */
+      }
+    };
+  }, [token]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat]);
+
+  async function startChat(lawyer) {
+    setSelected(lawyer);
+    setStatus("connecting");
+    setChat([]);
+    setWsError("");
+    try {
+      const res = await fetch(`${API}/lawyer/rooms`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          lawyer_id: String(lawyer.id ?? lawyer.bar_council_id ?? lawyer.name),
+          journey_id: journeyId || "",
+          lawyer_name: lawyer.name || "",
+          lawyer_meta: [lawyer.specialisation, lawyer.city].filter(Boolean).join(" · "),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || "Could not create the chat room");
+
+      const ws = new WebSocket(
+        `${wsBaseUrl()}/ws/lawyer/user/${data.room_id}?user_id=${encodeURIComponent(userId || "")}`
+      );
+      wsRef.current = ws;
+      ws.onmessage = (event) => {
+        let evt = {};
+        try {
+          evt = JSON.parse(event.data);
+        } catch {
+          return;
+        }
+        if (evt.type === "connected") {
+          setStatus("live");
+          setChat([{ sender: "system", text: evt.message || "Connected." }]);
+        } else if (evt.type === "message") {
+          setChat((prev) => [...prev, { sender: "lawyer", text: evt.text, simulated: !!evt.simulated }]);
+        } else if (evt.type === "session_ended") {
+          setStatus("closed");
+          setChat((prev) => [...prev, { sender: "system", text: "Chat session ended." }]);
+        } else if (evt.type === "error") {
+          setWsError(evt.detail || "Chat connection error");
+        }
+      };
+      ws.onerror = () => {
+        setStatus("error");
+        setWsError(
+          "Could not open the live chat connection. WebSocket support requires the backend to run on a WebSocket-capable host (e.g. locally via uvicorn)."
+        );
+      };
+      ws.onclose = () => {
+        setStatus((prev) => (prev === "connecting" || prev === "live" ? "error" : prev));
+      };
+    } catch (err) {
+      setStatus("error");
+      setWsError(err.message);
+    }
+  }
+
+  function sendMsg(event) {
+    event?.preventDefault();
+    const text = draft.trim();
+    const ws = wsRef.current;
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN || status !== "live") return;
+    ws.send(JSON.stringify({ type: "message", text }));
+    setChat((prev) => [...prev, { sender: "user", text }]);
+    setDraft("");
+  }
+
+  function endSession() {
+    try {
+      wsRef.current?.send(JSON.stringify({ type: "end_session" }));
+    } catch {
+      /* socket already gone */
+    }
+  }
+
+  const statusPill = {
+    idle: null,
+    connecting: (
+      <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 animate-pulse">
+        ● Connecting…
+      </span>
+    ),
+    live: (
+      <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+        ● Live
+      </span>
+    ),
+    closed: <span className={CHIP}>Session ended</span>,
+    error: (
+      <span className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-danger">
+        ✕ Disconnected
+      </span>
+    ),
+  }[status];
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+          <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-xl shadow-lg shadow-emerald-500/25">
+            💬
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="m-0 text-base font-bold">Live Chat with Lawyer</h3>
+            <p className="m-0 text-xs text-muted">
+              WebSocket real-time chat · demo replies until a real lawyer joins
+            </p>
+          </div>
+          {statusPill}
+          <button type="button" className={BTN_GHOST} onClick={onClose}>
+            ✕
+          </button>
+        </div>
+
+        {!selected ? (
+          <div className="flex-1 space-y-2 overflow-auto px-5 py-4">
+            {lawyers === null && !loadError && (
+              <p className="text-sm text-muted animate-pulse">Loading lawyer directory from Neon Postgres…</p>
+            )}
+            {loadError && (
+              <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">{loadError}</p>
+            )}
+            {lawyers?.length === 0 && <p className="text-sm text-muted">No lawyers in the directory yet.</p>}
+            {(lawyers || []).map((lawyer) => (
+              <article
+                key={lawyer.id ?? lawyer.bar_council_id}
+                className="rounded-xl border border-line bg-app p-3 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <header className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-sm">{lawyer.name}</strong>
+                  {lawyer.available_for_chat ? (
+                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                      ● Available for chat
+                    </span>
+                  ) : (
+                    <span className={CHIP}>Chat unavailable</span>
+                  )}
+                </header>
+                <p className="mb-1.5 mt-1 flex flex-wrap gap-1">
+                  <span className={CHIP}>{lawyer.specialisation}</span>
+                  <span className={CHIP}>{lawyer.city}, {lawyer.state}</span>
+                  <span className={CHIP}>{lawyer.experience_years} yrs</span>
+                  <span className={CHIP}>★ {lawyer.rating}/5 ({lawyer.reviews_count})</span>
+                  <span className={CHIP}>₹{lawyer.fees_per_hearing}/hearing</span>
+                </p>
+                <p className="m-0 mb-2 line-clamp-2 text-xs text-muted">{lawyer.profile}</p>
+                <button
+                  type="button"
+                  className={`${BTN_GRADIENT} px-4 py-1.5 text-sm`}
+                  disabled={!lawyer.available_for_chat}
+                  onClick={() => startChat(lawyer)}
+                >
+                  💬 Start live chat
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5 text-sm">
+              <span className="grid size-7 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[11px] font-bold text-white">
+                {(selected.name || "L").replace(/^Adv\.?\s*/i, "").slice(0, 1)}
+              </span>
+              <strong>{selected.name}</strong>
+              <span className={CHIP}>{selected.specialisation}</span>
+              <span className={CHIP}>{selected.city}</span>
+              <button
+                type="button"
+                className="ml-auto cursor-pointer text-xs text-muted transition-colors hover:text-ink"
+                onClick={() => {
+                  try {
+                    wsRef.current?.close();
+                  } catch {
+                    /* noop */
+                  }
+                  setSelected(null);
+                  setStatus("idle");
+                  setChat([]);
+                  setWsError("");
+                }}
+              >
+                ← Change lawyer
+              </button>
+            </div>
+            <div className="h-80 flex-1 space-y-2.5 overflow-auto bg-app px-5 py-4">
+              {status === "connecting" && (
+                <p className="text-center text-sm text-muted animate-pulse">Opening WebSocket room…</p>
+              )}
+              {wsError && (
+                <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-danger">{wsError}</p>
+              )}
+              {chat.map((m, idx) =>
+                m.sender === "system" ? (
+                  <p key={idx} className="m-0 text-center text-[11px] italic text-faint">
+                    {m.text}
+                  </p>
+                ) : (
+                  <div key={idx} className={`flex items-end gap-2 animate-rise ${m.sender === "user" ? "justify-end" : ""}`}>
+                    {m.sender === "lawyer" && (
+                      <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[11px] font-bold text-white">
+                        {(selected.name || "L").replace(/^Adv\.?\s*/i, "").slice(0, 1)}
+                      </span>
+                    )}
+                    <div
+                      className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                        m.sender === "user"
+                          ? "rounded-br-sm bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow"
+                          : "rounded-bl-sm border border-line bg-elev text-ink"
+                      }`}
+                    >
+                      {m.text}
+                      {m.simulated && (
+                        <small className="mt-1 block text-[9px] uppercase tracking-wide opacity-60">simulated demo reply</small>
+                      )}
+                    </div>
+                  </div>
+                )
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <form className="flex items-center gap-2 border-t border-line px-5 py-3" onSubmit={sendMsg}>
+              <input
+                className={INPUT_FIELD.replace("mt-1 ", "")}
+                placeholder={status === "live" ? `Message ${selected.name}…` : "Waiting for connection…"}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={status !== "live"}
+              />
+              <button
+                type="button"
+                className="cursor-pointer rounded-lg border border-line px-3 py-2 text-xs text-muted transition-colors hover:bg-side-hover hover:text-danger"
+                onClick={endSession}
+                disabled={status !== "live"}
+              >
+                End session
+              </button>
+              <button className={`${BTN_GRADIENT} px-4 py-2 text-sm`} type="submit" disabled={status !== "live" || !draft.trim()}>
+                Send
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -873,6 +1198,7 @@ export default function App() {
   const [wizardChat, setWizardChat] = useState([]);
   const [wizardDone, setWizardDone] = useState(false);
   const wizardInputRef = useRef(null);
+  const [lawyerChatOpen, setLawyerChatOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -1556,6 +1882,15 @@ export default function App() {
             }
           } else if (evt.type === "followups") {
             setFollowups(evt.questions || []);
+          } else if (evt.type === "sql") {
+            updateAssistant({
+              sqlInfo: {
+                sql: evt.sql || "",
+                rowCount: evt.row_count ?? 0,
+                columns: evt.columns || [],
+                tables: evt.tables || [],
+              },
+            });
           } else if (evt.type === "analysis") {
             updateAssistant({ analysis: evt.analysis });
             setPhase("writing");
@@ -1779,6 +2114,16 @@ export default function App() {
             >
               Agents {showAgents ? "ON" : "OFF"}
             </button>
+            {!guestMode && (
+              <button
+                type="button"
+                className="cursor-pointer rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 text-sm font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
+                onClick={() => setLawyerChatOpen(true)}
+                title="Open real-time lawyer chat"
+              >
+                💬 Lawyer Chat
+              </button>
+            )}
             <button
               type="button"
               className={`${BTN_GHOST} hidden sm:inline-flex`}
@@ -1914,6 +2259,7 @@ export default function App() {
                           routedTo={msg.routedTo}
                         />
                       )}
+                      {msg.role === "assistant" && msg.sqlInfo && <SqlCard sqlInfo={msg.sqlInfo} />}
                       <div className="m-0 text-[15px]">
                         {msg.content ? (
                           msg.role === "assistant" ? (
@@ -1952,6 +2298,17 @@ export default function App() {
                                 Copy
                               </>
                             )}
+                          </button>
+                        </div>
+                      )}
+                      {msg.role === "assistant" && msg.content && msg.routedTo === "lawyer_finder" && !guestMode && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            className={`${BTN_GRADIENT} px-4 py-1.5 text-sm`}
+                            onClick={() => setLawyerChatOpen(true)}
+                          >
+                            💬 Live Chat with Lawyer
                           </button>
                         </div>
                       )}
@@ -2323,6 +2680,16 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Lawyer Live Chat Modal ── */}
+      {lawyerChatOpen && !guestMode && (
+        <LawyerChatModal
+          token={token}
+          userId={user?.user_id || ""}
+          journeyId={journeyId}
+          onClose={() => setLawyerChatOpen(false)}
+        />
       )}
 
       {/* ── Mail Modal ── */}
