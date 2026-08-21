@@ -98,6 +98,7 @@ html[data-theme="light"] {
 body {
   background: var(--bg-main);
   color: var(--text);
+  overflow: hidden;
 }
 
 /* Hide native disclosure markers globally (Tailwind-only UI) */
@@ -122,4 +123,24 @@ summary::-webkit-details-marker {
 }
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+.sidebar-scroll {
+  scrollbar-gutter: stable;
+  scrollbar-color: color-mix(in srgb, var(--accent) 45%, transparent) transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+@media (max-width: 767px) {
+  *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
 }

@@ -62,6 +62,22 @@ const MD_COMPONENTS = {
   ),
 };
 
+function Icon({ name, className = "" }) {
+  const common = { className, width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true };
+  if (name === "menu") return <svg {...common}><line x1="4" y1="6" x2="20" y2="6" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="18" x2="20" y2="18" /></svg>;
+  if (name === "collapse") return <svg {...common}><path d="m15 18-6-6 6-6" /><path d="M20 4v16" /></svg>;
+  if (name === "expand") return <svg {...common}><path d="m9 18 6-6-6-6" /><path d="M4 4v16" /></svg>;
+  if (name === "overview") return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>;
+  if (name === "agents") return <svg {...common}><circle cx="9" cy="8" r="3" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 11a3 3 0 0 0 0-6" /><path d="M20.5 20a5.5 5.5 0 0 0-3.5-5.1" /></svg>;
+  if (name === "guide") return <svg {...common}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></svg>;
+  if (name === "upload") return <svg {...common}><path d="M12 16V3" /><path d="m7 8 5-5 5 5" /><path d="M5 21h14" /></svg>;
+  if (name === "send") return <svg {...common}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>;
+  if (name === "sun") return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>;
+  if (name === "moon") return <svg {...common}><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8Z" /></svg>;
+  if (name === "logout") return <svg {...common}><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 3v18" /></svg>;
+  return null;
+}
+
 function readTheme() {
   const saved = localStorage.getItem("legal_assist_theme");
   if (saved === "light" || saved === "dark") return saved;
@@ -950,8 +966,12 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-3 p-4 sm:p-6 animate-fade">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">Memory</h2>
+      <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 px-4 py-3 shadow-sm">
+        <div>
+          <p className="m-0 text-[11px] font-bold uppercase tracking-[0.16em] text-accent">Private workspace</p>
+          <h2 className="m-0 text-xl font-bold">Memory</h2>
+          <p className="m-0 text-xs text-muted">Your legal context, preferences, and document knowledge.</p>
+        </div>
         <button type="button" className={BTN_GHOST} onClick={onBack}>
           Back
         </button>
@@ -1446,6 +1466,7 @@ export default function App() {
   const [connectors, setConnectors] = useState([]);
   const [showAgents, setShowAgents] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("legal_assist_sidebar") === "collapsed");
   const [followups, setFollowups] = useState([]);
   const [editingId, setEditingId] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -1474,6 +1495,10 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("legal_assist_theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem("legal_assist_sidebar", sidebarCollapsed ? "collapsed" : "expanded");
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     fetch(`${API}/health`)
@@ -2306,20 +2331,25 @@ export default function App() {
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
-    <div className="grid h-screen overflow-hidden bg-app text-ink md:grid-cols-[260px_minmax(0,1fr)]">
+    <div className={`relative grid h-screen overflow-hidden bg-app text-ink transition-[grid-template-columns] duration-300 ${sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[276px_minmax(0,1fr)]"}`}>
+      <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-0 z-0 hidden h-[88%] max-w-[48vw] select-none object-contain opacity-[0.055] [filter:sepia(0.5)_saturate(1.25)] dark:opacity-[0.11] md:block" />
+      {sidebarOpen && <button type="button" className="fixed inset-0 z-10 bg-black/45 backdrop-blur-[1px] md:hidden" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
       <aside
-        className={`flex-col border-r border-line bg-side px-2 pb-3 pt-2.5 ${
+        className={`z-20 flex-col border-r border-line bg-side/95 px-2 pb-3 pt-2.5 backdrop-blur-xl ${
           sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
         } md:static md:flex md:w-auto md:max-w-none md:shadow-none`}
       >
-        <div className="flex items-center gap-2.5 px-2.5 pb-3.5 pt-2.5 font-semibold">
+        <div className={`flex items-center px-2.5 pb-3.5 pt-2.5 font-semibold ${sidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
           <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-md shadow-emerald-500/30">
             L
           </span>
-          Legal Assist
+          <span className={sidebarCollapsed ? "truncate md:hidden" : "truncate"}>Legal Assist</span>
+          <button type="button" className={`${BTN_GHOST} ml-auto hidden size-8 place-items-center p-0 md:grid`} onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}>
+            <Icon name={sidebarCollapsed ? "expand" : "collapse"} />
+          </button>
         </div>
         {guestMode ? (
-          <div className="mx-1 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          <div className={`mx-1 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-sm ${sidebarCollapsed ? "md:hidden" : ""}`}>
             <p className="m-0 font-semibold">Guest Mode</p>
             <small className="mt-1 block text-xs text-muted">
               Sign up for full access: memory, file uploads, and unlimited chats.
@@ -2329,10 +2359,18 @@ export default function App() {
           <>
             <button
               type="button"
+              className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-side-hover ${view === "chat" ? "bg-side-hover font-medium text-ink" : ""}`}
+              onClick={() => { setView("chat"); setSidebarOpen(false); }}
+              title="Overview"
+            >
+              <Icon name="overview" className="shrink-0" /><span className={sidebarCollapsed ? "md:hidden" : ""}>Overview</span>
+            </button>
+            <button
+              type="button"
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98]"
               onClick={newJourney}
             >
-              + New chat
+              <span className="text-lg leading-none">+</span><span className={sidebarCollapsed ? "md:hidden" : ""}>New chat</span>
             </button>
             <button
               type="button"
@@ -2344,13 +2382,13 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             >
-              Memory
+              <span className="inline-flex items-center gap-2"><span>◈</span><span className={sidebarCollapsed ? "md:hidden" : ""}>Memory</span></span>
             </button>
           </>
         )}
         {!guestMode && (
           <>
-            <div className="flex items-center justify-between">
+            <div className={`items-center justify-between ${sidebarCollapsed ? "flex md:hidden" : "flex"}`}>
               <p className="mx-3 mb-1.5 mt-4 text-[11px] uppercase tracking-wide text-faint">Chats</p>
               <button
                 type="button"
@@ -2361,7 +2399,7 @@ export default function App() {
                 Delete all
               </button>
             </div>
-            <ul className="m-0 flex-1 list-none overflow-auto p-0">
+            <ul className={`m-0 flex-1 list-none overflow-auto p-0 sidebar-scroll ${sidebarCollapsed ? "md:hidden" : ""}`}>
               {journeys.map((item) => (
                 <li
                   key={item.journey_id}
@@ -2445,7 +2483,7 @@ export default function App() {
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow">
               {initial}
             </span>
-            <span className="min-w-0">
+            <span className={`min-w-0 ${sidebarCollapsed ? "md:hidden" : ""}`}>
               <strong className="block truncate text-sm">{user?.name || "Account"}</strong>
               <small className="block truncate text-xs text-faint">{guestMode ? "Guest mode" : user?.email}</small>
             </span>
@@ -2453,21 +2491,21 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="flex h-screen min-w-0 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-emerald-500/10 via-transparent to-indigo-500/10 px-4 py-2.5">
+      <div className="relative z-10 flex h-screen min-w-0 flex-col">
+        <header className="flex min-h-14 items-center justify-between gap-2 border-b border-line bg-app/80 px-3 py-2 backdrop-blur-xl sm:px-4">
           <button
             type="button"
             className={`${BTN_GHOST} md:hidden`}
             onClick={() => setSidebarOpen((v) => !v)}
           >
-            Menu
+            <Icon name="menu" /><span className="hidden sm:inline">Menu</span>
           </button>
           <h1 className="m-0 min-w-0 truncate text-base font-semibold">
             {guestMode
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             {guestMode && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {guestCount}/3 messages
@@ -2479,10 +2517,10 @@ export default function App() {
               onClick={() => setShowAgents((v) => !v)}
               title={showAgents ? "Hide registered agents list" : "Show registered agents list"}
             >
-              AGENTS List {showAgents ? "Hide" : "Show"}
+              <Icon name="agents" /><span className="hidden xl:inline">Agents {showAgents ? "Hide" : "Show"}</span>
             </button>
             <button type="button" className={`${BTN_GHOST} ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
-              Agent Guide
+              <Icon name="guide" /><span className="hidden lg:inline">Agent Guide</span>
             </button>
             {!guestMode && (
               <button
@@ -2499,10 +2537,10 @@ export default function App() {
               className={`${BTN_GHOST} hidden sm:inline-flex`}
               onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             >
-              {theme === "dark" ? "Light" : "Dark"}
+              <Icon name={theme === "dark" ? "sun" : "moon"} /><span className="hidden lg:inline">{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
             <button type="button" className={BTN_GHOST} onClick={logout}>
-              {guestMode ? "Exit guest" : "Log out"}
+              <Icon name="logout" /><span className="hidden lg:inline">{guestMode ? "Exit guest" : "Log out"}</span>
             </button>
           </div>
         </header>
@@ -2860,11 +2898,12 @@ export default function App() {
                 {!guestMode && (
                   <button
                     type="button"
-                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl text-lg text-muted transition-colors hover:bg-side-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                    className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl border border-transparent text-[0px] text-muted transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:text-emerald-400 disabled:cursor-not-allowed disabled:opacity-40"
                     disabled={!!uploadJob?.running || !journeyId}
                     onClick={() => fileRef.current?.click()}
                     aria-label="Upload PDF, Word, text, or image"
                   >
+                    <Icon name="upload" className="text-lg" />
                     +
                   </button>
                 )}
@@ -2885,11 +2924,12 @@ export default function App() {
                   }}
                 />
                 <button
-                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-[0px] text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                   type="submit"
                   disabled={busy || !input.trim()}
                   aria-label="Send"
                 >
+                  <Icon name="send" className="ml-[-1px] text-lg" />
                   ↑
                 </button>
               </form>
