@@ -44,20 +44,27 @@ legal_assist_frontend/
 ├── vercel.json
 └── src/
     ├── main.jsx
-    ├── App.jsx         # whole app: chat, pipeline, wizard, lawyer chat, memory
+    ├── App.jsx         # app composition: chat, pipeline, wizard, lawyer chat, memory
+    ├── config/api.js   # canonical production API + local proxy handling
+    ├── constants/      # agents, upload limits, and shared labels
+    ├── lib/            # HTTP, SSE streaming, and formatting helpers
+    ├── styles/         # shared Tailwind class recipes
+    ├── components/ui/  # reusable presentational components
     ├── App.css
     └── index.css       # Tailwind theme tokens
 ```
 
 ## Environment variables
 
-Production needs the backend URL (baked in at build time):
+Production API routing is built into the app:
 
 | Variable | Value | Purpose |
 | --- | --- | --- |
-| `VITE_API_URL` | `https://legal-assist-api.vercel.app` | FastAPI base URL |
+| `VITE_API_URL` | Optional for local development | Overrides the local Vite proxy |
 
 Locally you can leave it empty — Vite proxies `/chat`, `/auth`, `/journeys`, `/memory`, `/documents`, `/connectors`, `/lawyer`, `/lawyers`, `/admin` and the `/ws` WebSocket to `http://127.0.0.1:8000`.
+
+Production builds are pinned to `https://legal-assist-api.vercel.app`. The canonical and only supported production frontend origin is `https://legal-assist-agentic.vercel.app`; preview aliases are not supported.
 
 ## Local setup
 
@@ -79,7 +86,6 @@ cd ../legal_assist_backend
 
 ```powershell
 vercel link --yes
-vercel env add VITE_API_URL production --value "https://legal-assist-api.vercel.app" --sensitive
 vercel --prod --yes
 ```
 
@@ -87,7 +93,7 @@ vercel --prod --yes
 
 | Issue | Fix |
 | --- | --- |
-| Badge stays `connecting…` | Backend is down, or `VITE_API_URL` is missing / wrong |
-| CORS error in the browser | Confirm backend allows this origin (`*.vercel.app` or `CORS_ORIGINS`) |
-| Chat works locally but not on Vercel | Rebuild after setting `VITE_API_URL` (Vite inlines it at build time) |
+| Badge stays `connecting…` | The production backend at `https://legal-assist-api.vercel.app` is unavailable |
+| CORS error in the browser | Use the canonical frontend URL: `https://legal-assist-agentic.vercel.app` |
+| Chat works locally but not on Vercel | Confirm the deployed frontend uses the production build; only local development uses `VITE_API_URL` |
 | Lawyer chat says connection unavailable | WebSocket needs a WS-capable backend host — run the backend locally with uvicorn |

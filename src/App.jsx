@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import { ProgressBar } from "./components/ui/ProgressBar";
+import { API_BASE_URL as API, websocketBaseUrl } from "./config/api";
+import { AGENT_LABELS, GUEST_MODE_KEY, MAX_UPLOAD_BYTES, STEP_LABELS, UPLOAD_STEP_LABELS } from "./constants/agents";
+import { formatBytes, formatTime as fmtWhen, lastUniqueSteps } from "./lib/formatters";
+import { authHeaders } from "./lib/http";
+import { parseSseBuffer } from "./lib/streaming";
+import { BTN_GHOST, BTN_GRADIENT, CHIP, INPUT_FIELD, SUMMARY } from "./styles/classes";
 
-const API = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
+// Production is intentionally pinned to the deployed API. Local development
+// may set VITE_API_URL, or leave it empty to use the Vite proxy.
 
 /* ── Shared Tailwind class recipes ── */
-const BTN_GHOST =
-  "cursor-pointer rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-elev hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
-const BTN_GRADIENT =
-  "cursor-pointer rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
-const INPUT_FIELD =
-  "mt-1 w-full rounded-lg border border-line bg-app px-3 py-2 text-sm text-ink outline-none transition placeholder:text-faint focus:border-accent focus:ring-2 focus:ring-accent/30";
-const CHIP =
-  "rounded-full border border-line bg-elev px-2 py-0.5 text-[11px] text-muted";
-const SUMMARY = "cursor-pointer select-none font-semibold";
 
 /* ── Markdown renderer styling (Tailwind only) ── */
 const MD_COMPONENTS = {
@@ -43,93 +42,10 @@ const MD_COMPONENTS = {
   ),
 };
 
-function parseSseBuffer(buffer, onEvent) {
-  const parts = buffer.split("\n\n");
-  const rest = parts.pop() || "";
-  for (const part of parts) {
-    const line = part.split("\n").find((item) => item.startsWith("data: "));
-    if (!line) continue;
-    try {
-      onEvent(JSON.parse(line.slice(6)));
-    } catch {
-      // ignore a partial/invalid chunk
-    }
-  }
-  return rest;
-}
-
 function readTheme() {
   const saved = localStorage.getItem("legal_assist_theme");
   if (saved === "light" || saved === "dark") return saved;
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-}
-
-function authHeaders(token) {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-const STEP_LABELS = {
-  memory: "Memory load",
-  rag: "Document search (RAG)",
-  prompt_cache: "Prompt cache",
-  analyser: "Query analyser",
-  generate: "Answer generator",
-  title: "Auto title",
-  followups: "Follow-up generator",
-  orchestrator: "Root agent (Orchestrator)",
-  assistant: "Assistant agent",
-  researcher: "Researcher agent",
-  draft: "Draft agent",
-  document_creator: "Document agent",
-  email: "Email agent",
-  lawyer_finder: "Lawyer finder",
-  db_chat: "Lawyer database (SQL)",
-  compress: "Context compression",
-  fast_path: "Greeting fast-path",
-  memory_write: "Memory save",
-  cache_exact: "Exact-match cache",
-  cache_semantic: "Semantic cache",
-  cache_write: "Cache save",
-};
-
-const AGENT_LABELS = {
-  assistant: "Assistant",
-  researcher: "Researcher",
-  draft: "Draft",
-  document_creator: "Document Creator",
-  email: "Email",
-  lawyer_finder: "Lawyer Finder",
-  db_chat: "DB Chat",
-};
-
-const GUEST_MODE_KEY = "legal_assist_guest";
-
-const UPLOAD_STEP_LABELS = {
-  receive: "Receive file",
-  validate: "Validate size",
-  parse: "Parse document",
-  chunk: "Chunk text",
-  mongodb: "MongoDB upload",
-  embed: "Embed chunks",
-  qdrant: "Qdrant index",
-};
-
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-
-function formatBytes(n) {
-  const value = Number(n) || 0;
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-function lastUniqueSteps(steps) {
-  const seen = new Map();
-  for (const step of steps || []) seen.set(step.name, step);
-  return [...seen.values()];
 }
 
 function stepTone(status) {
@@ -149,25 +65,6 @@ const STATUS_META = {
   miss: { icon: "○", cls: "border-line bg-elev text-faint" },
   skip: { icon: "↷", cls: "border-line bg-elev text-faint" },
 };
-
-function fmtWhen(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString([], { hour12: false });
-}
-
-function ProgressBar({ pct, tone }) {
-  const fill =
-    tone === "error"
-      ? "bg-gradient-to-r from-red-500 to-rose-500"
-      : "bg-gradient-to-r from-emerald-500 to-teal-500";
-  return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-line" aria-hidden="true">
-      <span className={`block h-full rounded-full transition-all duration-300 ${fill}`} style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
 
 function UploadPanel({ job, view, onView }) {
   if (!job || view === "hidden") return null;
@@ -457,11 +354,6 @@ function SqlCard({ sqlInfo }) {
   );
 }
 
-function wsBaseUrl() {
-  if (API) return API.replace(/^http/i, "ws");
-  return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}`;
-}
-
 function LawyerChatModal({ token, userId, journeyId, onClose }) {
   const [lawyers, setLawyers] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -511,7 +403,7 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
       if (!res.ok) throw new Error(data.detail || "Could not create the chat room");
 
       const ws = new WebSocket(
-        `${wsBaseUrl()}/ws/lawyer/user/${data.room_id}?user_id=${encodeURIComponent(userId || "")}`
+        `${websocketBaseUrl()}/ws/lawyer/user/${data.room_id}?user_id=${encodeURIComponent(userId || "")}`
       );
       wsRef.current = ws;
       ws.onmessage = (event) => {
