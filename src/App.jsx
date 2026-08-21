@@ -870,6 +870,8 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
 function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [showRaw, setShowRaw] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const q = journeyId ? `?journey_id=${encodeURIComponent(journeyId)}` : "";
@@ -890,6 +892,26 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
     );
   }
   if (!data) return <p className="p-6 text-sm text-muted animate-pulse">Loading memory…</p>;
+
+  const rawJson = JSON.stringify(data, null, 2);
+  async function copyRaw() {
+    try {
+      await navigator.clipboard.writeText(rawJson);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
+  function downloadRaw() {
+    const blob = new Blob([rawJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "my-memory-data.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const stores = [
     { key: "in_memory", label: "In-memory", hint: "Process RAM" },
@@ -918,6 +940,39 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
       <p className="text-xs text-faint">
         {data.journey_id ? data.journey_id.slice(0, 8) : "—"} · max 5 MB · {fileStore.bucket || "files"}
       </p>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-elev/50 px-4 py-3">
+        <label className="flex cursor-pointer items-center gap-3 text-sm">
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={showRaw}
+            onChange={(e) => setShowRaw(e.target.checked)}
+          />
+          <span className="relative h-5 w-9 shrink-0 rounded-full bg-line transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:transition-transform peer-checked:bg-emerald-500 peer-checked:after:translate-x-4" />
+          <span>
+            🔐 Share my complete memory data with me
+            <small className="block text-[11px] text-faint">
+              Memory is strictly yours — per user, per thread. Toggle on to view everything the app stores about you.
+            </small>
+          </span>
+        </label>
+        {showRaw && (
+          <span className="flex gap-2">
+            <button type="button" className={BTN_GHOST} onClick={copyRaw}>
+              {copied ? "Copied ✓" : "Copy JSON"}
+            </button>
+            <button type="button" className={BTN_GHOST} onClick={downloadRaw}>
+              Download
+            </button>
+          </span>
+        )}
+      </div>
+      {showRaw && (
+        <pre className="max-h-96 overflow-auto rounded-xl border border-line bg-app p-3 text-[11px] leading-relaxed text-muted">
+          {rawJson}
+        </pre>
+      )}
 
       {(profile.name || profile.email || profile.phone || profile.facts?.length) && (
         <details className={memBlock} open>
