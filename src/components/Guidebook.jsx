@@ -29,6 +29,12 @@ const WORKFLOWS = [
     expected: "Research and drafting cycle once through a bounded gap-check before the final draft.",
     flow: "Researcher -> Draft -> Researcher -> Draft",
   },
+  {
+    title: "Human-in-the-loop approval",
+    prompt: "workflow: hitl Draft a consumer complaint for a defective product and stop for my approval before I use it.",
+    expected: "A research-backed draft, a visible human review checklist, legal quality review, and a final draft that still requires human approval before use.",
+    flow: "Researcher -> Draft -> Human approval -> Researcher -> Draft",
+  },
 ];
 
 const STANDARD_USE_CASES = [
@@ -61,6 +67,18 @@ const STANDARD_USE_CASES = [
     prompt: "Check our employee onboarding process for Indian data privacy compliance gaps.",
     expected: "Assumptions, risk rating, control checklist, owners, and questions for counsel.",
     flow: "Orchestrator -> Compliance",
+  },
+  {
+    title: "Settlement negotiation",
+    prompt: "Prepare a settlement counterproposal for an unpaid freelance invoice in India.",
+    expected: "Negotiation goals, proposed terms, fallback choices, and a concise counterproposal.",
+    flow: "Orchestrator -> Negotiation",
+  },
+  {
+    title: "Legal risk assessment",
+    prompt: "Assess the legal risks of sharing customer data with a marketing vendor in India.",
+    expected: "A severity-ranked risk register, mitigations, evidence to retain, and escalation points.",
+    flow: "Orchestrator -> Risk Assessment",
   },
 ];
 

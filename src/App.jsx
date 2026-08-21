@@ -264,7 +264,7 @@ function TraceCard({ trace, live }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <strong className="text-[12px] font-semibold text-ink">
-                        {STEP_LABELS[step.name] || AGENT_LABELS[step.name] || step.name}
+                        {STEP_LABELS[step.display_name || step.name] || AGENT_LABELS[step.display_name || step.name] || step.display_name || step.name}
                       </strong>
                       <span className={`rounded-full border px-1.5 py-px text-[10px] ${stepTone(step.status)}`}>
                         {step.status}
@@ -2015,9 +2015,9 @@ export default function App() {
               type="button"
               className={`${BTN_GHOST} ${showAgents ? "bg-accent/15 text-accent" : ""}`}
               onClick={() => setShowAgents((v) => !v)}
-              title="Show agents"
+              title={showAgents ? "Hide registered agents list" : "Show registered agents list"}
             >
-              Agents {showAgents ? "ON" : "OFF"}
+              AGENTS List {showAgents ? "Hide" : "Show"}
             </button>
             <button type="button" className={`${BTN_GHOST} ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
               Agent Guide

@@ -6,6 +6,8 @@ export const STEP_LABELS = {
   document_creator: "Document agent", email: "Email agent", lawyer_finder: "Lawyer finder",
   db_chat: "Lawyer database (SQL)", case_strategy: "Case strategy agent",
   compliance: "Compliance agent", workflow_supervisor: "Workflow supervisor",
+  negotiation: "Negotiation agent", risk_assessment: "Risk assessment agent",
+  human_review: "Human approval checkpoint",
   compress: "Context compression", fast_path: "Greeting fast-path",
   memory_write: "Memory save", cache_exact: "Exact-match cache", cache_semantic: "Semantic cache",
   cache_write: "Cache save",
@@ -15,6 +17,7 @@ export const AGENT_LABELS = {
   assistant: "Assistant", researcher: "Researcher", draft: "Draft",
   document_creator: "Document Creator", email: "Email", lawyer_finder: "Lawyer Finder", db_chat: "DB Chat",
   case_strategy: "Case Strategy", compliance: "Compliance", workflow_supervisor: "Workflow Supervisor",
+  negotiation: "Negotiation", risk_assessment: "Risk Assessment", human_review: "Human Review",
 };
 
 export const UPLOAD_STEP_LABELS = {
