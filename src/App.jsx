@@ -2231,6 +2231,7 @@ export default function App() {
   }
 
   const busy = phase !== "idle" || !!uploadJob?.running;
+  const hitlPending = messages.some((m) => m.hitl && m.hitl.status === "pending");
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
@@ -2680,7 +2681,7 @@ export default function App() {
                     {error}
                   </p>
                 )}
-                {!!followups.length && phase === "idle" && (
+                {!!followups.length && phase === "idle" && !hitlPending && (
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="m-0 text-xs uppercase tracking-wide text-faint">Follow up</p>
                     {followups.map((q) => (
