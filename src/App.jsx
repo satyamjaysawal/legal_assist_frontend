@@ -73,6 +73,9 @@ function Icon({ name, className = "" }) {
   if (name === "memory") return <svg {...common}><path d="M12 2a5 5 0 0 0-5 5v1a4 4 0 0 0-3 3.9V14a4 4 0 0 0 3 3.9V19a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-1.1A4 4 0 0 0 20 14v-2.1A4 4 0 0 0 17 8V7a5 5 0 0 0-5-5Z" /><path d="M12 2v20M8 10h.01M16 10h.01M8 15h.01M16 15h.01" /></svg>;
   if (name === "plus") return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>;
   if (name === "lawyer") return <svg {...common}><path d="M12 3 3 7l9 4 9-4-9-4Z" /><path d="M6 9.2V14c2.4 2 9.6 2 12 0V9.2" /><path d="M21 7v7" /><path d="M19.5 17h3" /></svg>;
+  if (name === "profile") return <svg {...common}><circle cx="12" cy="8" r="3.5" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></svg>;
+  if (name === "arrowLeft") return <svg {...common}><path d="m15 18-6-6 6-6" /><path d="M9 12h11" /></svg>;
+  if (name === "end") return <svg {...common}><path d="M6 4h3l1.5 4-2.2 1.4a14 14 0 0 0 6.3 6.3l1.4-2.2 4 1.5v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4 6.2 2 2 0 0 1 6 4Z" /></svg>;
   if (name === "upload") return <svg {...common}><path d="M12 16V3" /><path d="m7 8 5-5 5 5" /><path d="M5 21h14" /></svg>;
   if (name === "send") return <svg {...common}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>;
   if (name === "sun") return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>;
@@ -751,13 +754,13 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
   }[status];
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-md sm:p-4" onClick={onClose}>
       <div
-        className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+        className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-emerald-500/20 bg-elev shadow-2xl shadow-emerald-950/30 animate-rise"
         onClick={(e) => e.stopPropagation()}
       >
-        <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-[-26px] h-[86%] w-auto select-none opacity-[0.08] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.14]" />
-        <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+        <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-[-38px] h-[98%] w-auto select-none opacity-[0.13] [filter:sepia(0.5)_saturate(1.3)] dark:opacity-[0.2]" />
+        <div className="relative flex items-center gap-3 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-indigo-500/15 px-5 py-4 backdrop-blur-sm">
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-[0px] shadow-lg shadow-emerald-500/25">
             <Icon name="lawyer" className="size-5 text-white" />
             💬
@@ -775,7 +778,14 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
         </div>
 
         {!selected ? (
-          <div className="flex-1 space-y-2 overflow-auto px-5 py-4">
+          <div className="relative flex-1 space-y-3 overflow-auto px-5 py-4">
+            <section className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-950/90 via-teal-900/75 to-indigo-950/80 px-4 py-4 text-white shadow-lg shadow-emerald-950/20">
+              <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-52px] right-2 h-52 w-auto select-none opacity-25 [filter:sepia(0.4)_saturate(1.2)]" />
+              <p className="relative m-0 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">Verified legal network</p>
+              <h4 className="relative mb-1 mt-1 text-lg font-bold">Choose counsel for your next legal step.</h4>
+              <p className="relative m-0 max-w-md text-xs leading-relaxed text-emerald-50/75">Review practice area, city, experience and consultation fee, then begin a secure live conversation.</p>
+              <div className="relative mt-3 flex flex-wrap gap-2 text-[11px] text-emerald-100/90"><span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1">Practice matched</span><span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1">Live availability</span><span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1">Private session</span></div>
+            </section>
             {lawyers === null && !loadError && (
               <p className="text-sm text-muted animate-pulse">Loading lawyer directory from Neon Postgres…</p>
             )}
@@ -786,7 +796,7 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
             {(lawyers || []).map((lawyer) => (
               <article
                 key={lawyer.id ?? lawyer.bar_council_id}
-                className="rounded-xl border border-line bg-app p-3 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+                className="relative overflow-hidden rounded-2xl border border-line bg-app/85 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
               >
                 <header className="flex flex-wrap items-center justify-between gap-2">
                   <strong className="text-sm">{lawyer.name}</strong>
@@ -808,10 +818,11 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
                 <p className="m-0 mb-2 line-clamp-2 text-xs text-muted">{lawyer.profile}</p>
                 <button
                   type="button"
-                  className={`${BTN_GRADIENT} px-4 py-1.5 text-sm`}
+                  className={`${BTN_GRADIENT} inline-flex items-center gap-1.5 px-4 py-2 text-[0px] text-sm`}
                   disabled={!lawyer.available_for_chat}
                   onClick={() => startChat(lawyer)}
                 >
+                  <Icon name="lawyer" className="size-[17px]" /><span className="text-sm">Start live chat</span>
                   💬 Start live chat
                 </button>
               </article>
@@ -819,16 +830,14 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-2.5 text-sm">
-              <span className="grid size-7 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-[11px] font-bold text-white">
-                {(selected.name || "L").replace(/^Adv\.?\s*/i, "").slice(0, 1)}
-              </span>
-              <strong>{selected.name}</strong>
+            <div className="relative flex flex-wrap items-center gap-2 border-b border-emerald-500/15 bg-elev/80 px-5 py-3 text-sm backdrop-blur-sm">
+              <span className="grid size-9 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow-md shadow-indigo-500/20"><Icon name="lawyer" className="size-[18px]" /></span>
+              <span className="min-w-0"><strong className="block truncate">{selected.name}</strong><small className="block text-[10px] uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Secure counsel room</small></span>
               <span className={CHIP}>{selected.specialisation}</span>
               <span className={CHIP}>{selected.city}</span>
               <button
                 type="button"
-                className="ml-auto cursor-pointer text-xs text-muted transition-colors hover:text-ink"
+                className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1.5 text-xs text-muted transition-colors hover:bg-side-hover hover:text-ink"
                 onClick={() => {
                   try {
                     wsRef.current?.close();
@@ -841,10 +850,12 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
                   setWsError("");
                 }}
               >
+                <Icon name="arrowLeft" className="size-4" /> Change lawyer{/*
                 ← Change lawyer
-              </button>
+                */}</button>
             </div>
-            <div className="h-80 flex-1 space-y-2.5 overflow-auto bg-app px-5 py-4">
+            <div className="relative h-80 flex-1 space-y-2.5 overflow-auto bg-app/70 px-5 py-4 backdrop-blur-[2px]">
+              <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-3 h-[92%] w-auto select-none opacity-[0.1] [filter:sepia(0.5)_saturate(1.3)] dark:opacity-[0.16]" />
               {status === "connecting" && (
                 <p className="text-center text-sm text-muted animate-pulse">Opening WebSocket room…</p>
               )}
@@ -880,7 +891,7 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
               )}
               <div ref={chatEndRef} />
             </div>
-            <form className="flex items-center gap-2 border-t border-line px-5 py-3" onSubmit={sendMsg}>
+            <form className="relative flex items-center gap-2 border-t border-emerald-500/15 bg-elev/85 px-5 py-3 backdrop-blur-sm" onSubmit={sendMsg}>
               <input
                 className={INPUT_FIELD.replace("mt-1 ", "")}
                 placeholder={status === "live" ? `Message ${selected.name}…` : "Waiting for connection…"}
@@ -890,14 +901,14 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
               />
               <button
                 type="button"
-                className="cursor-pointer rounded-lg border border-line px-3 py-2 text-xs text-muted transition-colors hover:bg-side-hover hover:text-danger"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-xs text-muted transition-colors hover:bg-side-hover hover:text-danger"
                 onClick={endSession}
                 disabled={status !== "live"}
               >
-                End session
+                <Icon name="end" className="size-4" /> End
               </button>
-              <button className={`${BTN_GRADIENT} px-4 py-2 text-sm`} type="submit" disabled={status !== "live" || !draft.trim()}>
-                Send
+              <button className={`${BTN_GRADIENT} inline-flex items-center gap-1.5 px-4 py-2 text-sm`} type="submit" disabled={status !== "live" || !draft.trim()}>
+                <Icon name="send" className="size-4" /> Send
               </button>
             </form>
           </>
@@ -2389,8 +2400,9 @@ export default function App() {
                 setSidebarOpen(false);
               }}
             >
+              <Icon name="memory" className="size-[18px]" /><span className={sidebarCollapsed ? "md:hidden" : ""}>Memory</span>{/*
               <span className="inline-flex items-center gap-2"><span>◈</span><span className={sidebarCollapsed ? "md:hidden" : ""}>Memory</span></span>
-            </button>
+              */}</button>
           </>
         )}
         {!guestMode && (
@@ -2488,7 +2500,7 @@ export default function App() {
             onClick={() => (guestMode ? logout() : setView("profile"))}
           >
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow">
-              {initial}
+              <Icon name="profile" className="size-[17px]" />
             </span>
             <span className={`min-w-0 ${sidebarCollapsed ? "md:hidden" : ""}`}>
               <strong className="block truncate text-sm">{user?.name || "Account"}</strong>
@@ -2912,9 +2924,9 @@ export default function App() {
                     onClick={() => fileRef.current?.click()}
                     aria-label="Upload PDF, Word, text, or image"
                   >
-                    <Icon name="upload" className="text-lg" />
+                    <Icon name="upload" className="text-lg" />{/*
                     +
-                  </button>
+                    */}</button>
                 )}
                 <textarea
                   ref={inputRef}
@@ -2938,9 +2950,9 @@ export default function App() {
                   disabled={busy || !input.trim()}
                   aria-label="Send"
                 >
-                  <Icon name="send" className="ml-[-1px] text-lg" />
+                  <Icon name="send" className="ml-[-1px] text-lg" />{/*
                   ↑
-                </button>
+                  */}</button>
               </form>
               <p className="mt-1.5 text-center text-[11px] text-faint">
                 {guestMode
