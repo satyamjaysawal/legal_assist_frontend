@@ -53,7 +53,7 @@ function stepTone(status) {
   if (status === "done" || status === "hit" || status === "cached")
     return "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400";
   if (status === "running") return "animate-pulse border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400";
-  if (status === "error") return "border-red-500/40 bg-red-500/10 text-danger";
+  if (status === "error" || status === "failed") return "border-red-500/40 bg-red-500/10 text-danger";
   return "border-line bg-elev text-faint";
 }
 
@@ -63,6 +63,7 @@ const STATUS_META = {
   cached: { icon: "⚡", cls: "border-emerald-500/50 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
   running: { icon: "●", cls: "animate-pulse border-amber-500/50 bg-amber-500/15 text-amber-600 dark:text-amber-400" },
   error: { icon: "✕", cls: "border-red-500/50 bg-red-500/15 text-danger" },
+  failed: { icon: "✕", cls: "border-red-500/50 bg-red-500/15 text-danger" },
   miss: { icon: "○", cls: "border-line bg-elev text-faint" },
   skip: { icon: "↷", cls: "border-line bg-elev text-faint" },
 };
@@ -196,6 +197,80 @@ function AnalysisChips({ analysis, cached, routedTo }) {
   );
 }
 
+function StageNode({ stage, childrenMap, depth }) {
+  const kids = childrenMap.get(stage.stage_id) || [];
+  const meta = STATUS_META[stage.status] || STATUS_META.miss;
+  return (
+    <li className="relative pb-1.5 pl-5 last:pb-0">
+      <span className="absolute left-[7px] top-0 h-full w-px bg-line" aria-hidden="true" />
+      <span className="absolute left-[7px] top-[13px] h-px w-3 bg-line" aria-hidden="true" />
+      <details className="rounded-lg border border-line bg-app/70 px-2 py-1.5" open={depth < 1}>
+        <summary className={`${SUMMARY} flex flex-wrap items-center gap-1.5`}>
+          <span className={`grid size-[17px] shrink-0 place-items-center rounded-full border text-[9px] font-bold ${meta.cls}`}>
+            {meta.icon}
+          </span>
+          <strong className="text-[11.5px] text-ink">
+            {AGENT_LABELS[stage.agent] || STEP_LABELS[stage.agent] || stage.agent}
+          </strong>
+          <span className="font-mono text-[9px] text-faint">{stage.stage_id}</span>
+          <span className={`rounded-full border px-1.5 py-px text-[9px] ${stepTone(stage.status)}`}>{stage.status}</span>
+        </summary>
+        <div className="mt-1.5 space-y-1.5 border-t border-line pt-1.5">
+          {stage.input ? (
+            <div>
+              <p className="m-0 text-[9px] font-bold uppercase tracking-wide text-faint">📥 Received (hand-off into this agent)</p>
+              <pre className="m-0 max-h-36 overflow-auto whitespace-pre-wrap rounded bg-elev p-1.5 font-mono text-[10px] leading-snug text-muted">{stage.input}</pre>
+            </div>
+          ) : null}
+          {stage.reply ? (
+            <div>
+              <p className="m-0 text-[9px] font-bold uppercase tracking-wide text-faint">
+                📤 Produced{stage.truncated ? " (truncated for display)" : ""} — passed to the next agent
+              </p>
+              <pre className="m-0 max-h-36 overflow-auto whitespace-pre-wrap rounded bg-elev p-1.5 font-mono text-[10px] leading-snug text-muted">{stage.reply}</pre>
+            </div>
+          ) : (
+            <p className="m-0 text-[10px] italic text-faint">Still generating…</p>
+          )}
+        </div>
+      </details>
+      {!!kids.length && (
+        <ul className="m-0 mt-1.5 list-none p-0">
+          {kids.map((kid) => (
+            <StageNode key={kid.stage_id} stage={kid} childrenMap={childrenMap} depth={depth + 1} />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function AgentFlowTree({ stages }) {
+  if (!stages?.length) return null;
+  const byId = new Map(stages.map((s) => [s.stage_id, s]));
+  const childrenMap = new Map();
+  const roots = [];
+  for (const s of stages) {
+    if (s.parent_stage_id && byId.has(s.parent_stage_id)) {
+      childrenMap.set(s.parent_stage_id, [...(childrenMap.get(s.parent_stage_id) || []), s]);
+    } else {
+      roots.push(s);
+    }
+  }
+  return (
+    <div className="rounded-lg border border-accent/30 bg-accent/5 p-2">
+      <p className="m-0 mb-1.5 text-[10px] font-bold uppercase tracking-wide text-faint">
+        🌳 Agent flow tree — what each agent received and produced
+      </p>
+      <ul className="m-0 list-none p-0">
+        {roots.map((root) => (
+          <StageNode key={root.stage_id} stage={root} childrenMap={childrenMap} depth={0} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function TraceCard({ trace, live }) {
   if (!trace) return null;
   const steps = lastUniqueSteps(trace.steps);
@@ -247,6 +322,7 @@ function TraceCard({ trace, live }) {
             {!!workflow.stages?.length && <span> · {workflow.stages.join(" → ")}</span>}
           </div>
         )}
+        <AgentFlowTree stages={trace.stages} />
         {!!steps.length && (
           <ol className="m-0 list-none space-y-0 p-0">
             {steps.map((step, idx) => {
@@ -1764,6 +1840,17 @@ export default function App() {
               workflow: evt.workflow || null,
               trace: { ...(prev.trace || {}), workflow: evt.workflow || null },
             }));
+          } else if (evt.type === "stage") {
+            const stage = evt.stage || {};
+            if (stage.stage_id) {
+              updateAssistant((prev) => {
+                const stages = [...((prev.trace && prev.trace.stages) || [])];
+                const idx = stages.findIndex((s) => s.stage_id === stage.stage_id);
+                if (idx >= 0) stages[idx] = { ...stages[idx], ...stage };
+                else stages.push(stage);
+                return { trace: { ...(prev.trace || {}), stages } };
+              });
+            }
           } else if (evt.type === "memory") {
             setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
             updateAssistant((prev) => ({
@@ -2057,8 +2144,11 @@ export default function App() {
           <Guidebook
             onBack={() => setView("chat")}
             onUseQuery={(query) => {
+              // Load the sample into the chat box only — the user decides
+              // when to send it by pressing Enter.
               setView("chat");
-              setTimeout(() => send(null, query), 0);
+              setInput(query);
+              setTimeout(() => inputRef.current?.focus(), 0);
             }}
           />
         ) : !guestMode && view === "memory" ? (

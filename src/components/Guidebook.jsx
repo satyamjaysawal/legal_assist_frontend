@@ -89,7 +89,7 @@ export function Guidebook({ onUseQuery, onBack }) {
         <div>
           <p className="m-0 text-xs font-bold uppercase tracking-widest text-accent">Legal Assist POC</p>
           <h2 className="mb-1 mt-1 text-2xl font-bold">Agent guidebook</h2>
-          <p className="m-0 max-w-3xl text-sm text-muted">Run a sample to observe the live pipeline. This demo uses bounded workflows so parallel work and iterative cycles remain predictable.</p>
+          <p className="m-0 max-w-3xl text-sm text-muted">Load a sample into the chat box and press Enter to run it — nothing is sent until you hit Enter. The live pipeline shows each agent as a tree: what it received, what it produced, and which agent ran next.</p>
         </div>
         <button type="button" className="cursor-pointer rounded-lg border border-line px-3 py-2 text-sm text-muted hover:bg-side-hover" onClick={onBack}>Back to chat</button>
       </header>
@@ -103,7 +103,7 @@ export function Guidebook({ onUseQuery, onBack }) {
               <p className="mb-2 mt-1 text-xs text-accent">{item.flow}</p>
               <p className="mb-3 text-sm text-muted">Expected: {item.expected}</p>
               <code className="block rounded-lg bg-app p-2 text-xs text-ink">{item.prompt}</code>
-              <button type="button" className="mt-3 cursor-pointer rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-semibold text-white" onClick={() => onUseQuery(item.prompt)}>Use sample</button>
+              <button type="button" className="mt-3 cursor-pointer rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-3 py-1.5 text-sm font-semibold text-white" onClick={() => onUseQuery(item.prompt)} title="Loads the sample into the chat box — press Enter to send">Load sample into chat</button>
             </article>
           ))}
         </div>
@@ -117,7 +117,7 @@ export function Guidebook({ onUseQuery, onBack }) {
               <h4 className="m-0 font-semibold">{item.title}</h4>
               <p className="mb-1 mt-2 text-xs text-accent">{item.flow}</p>
               <p className="mt-1 text-sm text-muted">Expected: {item.expected}</p>
-              <button type="button" className="mt-auto cursor-pointer text-left text-sm font-medium text-accent underline" onClick={() => onUseQuery(item.prompt)}>Try: {item.prompt}</button>
+              <button type="button" className="mt-auto cursor-pointer text-left text-sm font-medium text-accent underline" onClick={() => onUseQuery(item.prompt)} title="Loads the sample into the chat box — press Enter to send">Load: {item.prompt}</button>
             </article>
           ))}
         </div>
