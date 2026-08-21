@@ -21,6 +21,8 @@ React + Tailwind chat UI for the **Legal AI Assistant** — streams the full mul
 
 ## Features
 
+- **Agent Guidebook** â€” a main-page button with runnable samples for sequential, parallel, supervisor/subagent, loop, and cyclic workflows, including expected results and agent flows
+
 - Streams `POST /chat/stream/v2` (SSE) token-by-token
 - **Agent Pipeline panel** — live step timeline: memory reads/writes, exact & semantic cache, RAG, orchestrator routing, specialist agent, follow-ups, cache save
 - **Intent chips** — intent · domain · complexity · routed agent

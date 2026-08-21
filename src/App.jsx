@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { ProgressBar } from "./components/ui/ProgressBar";
+import { Guidebook } from "./components/Guidebook";
 import { API_BASE_URL as API, websocketBaseUrl } from "./config/api";
 import { AGENT_LABELS, GUEST_MODE_KEY, MAX_UPLOAD_BYTES, STEP_LABELS, UPLOAD_STEP_LABELS } from "./constants/agents";
 import { formatBytes, formatTime as fmtWhen, lastUniqueSteps } from "./lib/formatters";
@@ -202,6 +203,7 @@ function TraceCard({ trace, live }) {
   const writes = trace.writes || [];
   const cache = trace.cache;
   const cacheWrite = trace.cacheWrite;
+  const workflow = trace.workflow;
   const retrieval = trace.retrieval;
   const hits = retrieval?.hits || [];
   if (!trace.thinking && !steps.length && !cache && !layers.length && !retrieval) return null;
@@ -237,6 +239,12 @@ function TraceCard({ trace, live }) {
           <div className="flex flex-wrap gap-1.5">
             {cache && cachePill(cache.status, "cache")}
             {retrieval?.report && cachePill(retrieval.report.status, "rag")}
+          </div>
+        )}
+        {workflow && (
+          <div className="rounded-lg border border-accent/30 bg-accent/5 p-2 text-[11px] text-muted">
+            <strong className="text-ink">{workflow.label || "Workflow"}:</strong> {workflow.pattern}
+            {!!workflow.stages?.length && <span> · {workflow.stages.join(" → ")}</span>}
           </div>
         )}
         {!!steps.length && (
@@ -1751,6 +1759,11 @@ export default function App() {
               analysis: evt.analysis || null,
             });
             setPhase("writing");
+          } else if (evt.type === "workflow") {
+            updateAssistant((prev) => ({
+              workflow: evt.workflow || null,
+              trace: { ...(prev.trace || {}), workflow: evt.workflow || null },
+            }));
           } else if (evt.type === "memory") {
             setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
             updateAssistant((prev) => ({
@@ -2006,6 +2019,9 @@ export default function App() {
             >
               Agents {showAgents ? "ON" : "OFF"}
             </button>
+            <button type="button" className={`${BTN_GHOST} ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
+              Agent Guide
+            </button>
             {!guestMode && (
               <button
                 type="button"
@@ -2036,6 +2052,14 @@ export default function App() {
             token={token}
             onBack={() => setView("chat")}
             onUser={setUser}
+          />
+        ) : view === "guidebook" ? (
+          <Guidebook
+            onBack={() => setView("chat")}
+            onUseQuery={(query) => {
+              setView("chat");
+              setTimeout(() => send(null, query), 0);
+            }}
           />
         ) : !guestMode && view === "memory" ? (
           <MemoryDetail
