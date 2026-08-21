@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { ProgressBar } from "./components/ui/ProgressBar";
 import { Guidebook } from "./components/Guidebook";
+import { LadyJusticeArt } from "./components/LadyJustice";
+import ladyJusticePng from "./assets/lady-justice.png";
 import { API_BASE_URL as API, websocketBaseUrl } from "./config/api";
 import { AGENT_LABELS, GUEST_MODE_KEY, MAX_UPLOAD_BYTES, STEP_LABELS, UPLOAD_STEP_LABELS } from "./constants/agents";
 import { formatBytes, formatTime as fmtWhen, lastUniqueSteps } from "./lib/formatters";
@@ -1149,6 +1151,55 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   );
 }
 
+/* ── Auth-screen marketing hero + dark-glass field style ── */
+const AUTH_FIELD =
+  "mt-1 w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-sm text-white placeholder-emerald-100/40 outline-none transition-colors focus:border-emerald-400/70";
+
+const EMPTY_SAMPLES = [
+  "Draft a legal notice for unpaid salary",
+  "Consumer complaint for a defective product",
+  "Explain bail conditions under BNSS",
+];
+
+function MarketingHero() {
+  return (
+    <section className="hidden max-w-xl flex-col gap-6 lg:flex animate-rise lg:-translate-y-10">
+      <span className="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold tracking-widest text-emerald-300">
+        ⚖️ AI LEGAL ASSISTANT
+      </span>
+      <h1 className="m-0 text-4xl font-black leading-tight text-white xl:text-5xl">
+        Know the law.
+        <br />
+        <span className="bg-gradient-to-r from-emerald-300 via-teal-200 to-indigo-300 bg-clip-text text-transparent">
+          Act with confidence.
+        </span>
+      </h1>
+      <p className="m-0 text-sm leading-relaxed text-emerald-100/70 xl:text-base">
+        Legal Assist pairs multi-agent AI research with human-in-the-loop approval — grounded answers, polished drafts, and a memory that belongs only to you.
+      </p>
+      <ul className="m-0 grid list-none gap-3 p-0 text-sm text-emerald-50/90">
+        <li className="flex items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">⚖️</span>
+          Multi-agent research, drafting & case strategy
+        </li>
+        <li className="flex items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">🧠</span>
+          Personal memory — private per user, per thread
+        </li>
+        <li className="flex items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">✅</span>
+          Human approval before any draft is final
+        </li>
+        <li className="flex items-center gap-3">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5">🔍</span>
+          Grounded in your documents & legal sources
+        </li>
+      </ul>
+      <p className="m-0 text-[11px] text-emerald-100/40">AI guidance — not a substitute for a qualified lawyer.</p>
+    </section>
+  );
+}
+
 function AuthScreen({ onAuthed, onGuest, onAnonymous }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
@@ -1199,50 +1250,50 @@ function AuthScreen({ onAuthed, onGuest, onAnonymous }) {
 
   return (
     <form
-      className="w-full max-w-sm space-y-3 rounded-2xl border border-line bg-elev p-6 shadow-2xl animate-rise"
+      className="w-full max-w-md space-y-3 rounded-3xl border border-white/10 bg-[#06201a]/75 p-6 text-emerald-50 shadow-2xl shadow-black/50 backdrop-blur-xl animate-rise sm:p-7"
       onSubmit={submit}
     >
-      <div className="flex items-center gap-2.5 pb-1 font-semibold">
+      <div className="flex items-center gap-2.5 pb-1 font-semibold text-white">
         <span className="grid size-8 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">
           L
         </span>
         Legal Assist
       </div>
-      <h1 className="text-xl font-bold">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
+      <h1 className="text-xl font-bold text-white">{mode === "login" ? "Welcome back" : "Create your account"}</h1>
       {mode === "register" && (
         <>
-          <label className="block text-sm text-muted">
+          <label className="block text-sm text-emerald-100/70">
             Name
             <input
-              className={INPUT_FIELD}
+              className={AUTH_FIELD}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
             />
           </label>
-          <label className="block text-sm text-muted">
+          <label className="block text-sm text-emerald-100/70">
             Role
-            <select className={INPUT_FIELD} value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="user">User</option>
-              <option value="lawyer">Lawyer</option>
+            <select className={AUTH_FIELD} value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="user" className="text-slate-900">User</option>
+              <option value="lawyer" className="text-slate-900">Lawyer</option>
             </select>
           </label>
         </>
       )}
-      <label className="block text-sm text-muted">
+      <label className="block text-sm text-emerald-100/70">
         Email
         <input
-          className={INPUT_FIELD}
+          className={AUTH_FIELD}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
         />
       </label>
-      <label className="block text-sm text-muted">
+      <label className="block text-sm text-emerald-100/70">
         Password
         <input
-          className={INPUT_FIELD}
+          className={AUTH_FIELD}
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -1250,36 +1301,36 @@ function AuthScreen({ onAuthed, onGuest, onAnonymous }) {
           minLength={6}
         />
       </label>
-      {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p className="rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-sm text-red-200">{error}</p>}
       <button className={`${BTN_GRADIENT} w-full py-2.5`} type="submit" disabled={busy}>
         {busy ? "Please wait…" : mode === "login" ? "Continue" : "Create account"}
       </button>
       <button
         type="button"
-        className="w-full cursor-pointer text-center text-sm text-muted transition-colors hover:text-ink"
+        className="w-full cursor-pointer text-center text-sm text-emerald-100/60 transition-colors hover:text-white"
         onClick={() => setMode(mode === "login" ? "register" : "login")}
       >
         {mode === "login" ? "Need an account?" : "Have an account?"}
       </button>
-      <div className="flex items-center gap-3 text-xs text-faint before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
+      <div className="flex items-center gap-3 text-xs text-emerald-100/50 before:h-px before:flex-1 before:bg-white/15 after:h-px after:flex-1 after:bg-white/15">
         <span>or</span>
       </div>
       <button
         type="button"
         disabled={busy}
-        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-2.5 text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400"
+        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-emerald-400/40 bg-emerald-400/10 py-2.5 text-sm font-semibold text-emerald-300 transition-colors hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
         onClick={anonymous}
       >
         🙋 Continue as user — no login
-        <small className="text-[11px] font-normal text-faint">Full access (chat, uploads, memory, approvals) · No sign-up required</small>
+        <small className="text-[11px] font-normal text-emerald-100/50">Full access (chat, uploads, memory, approvals) · No sign-up required</small>
       </button>
       <button
         type="button"
-        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-line py-2.5 text-sm transition-colors hover:bg-side-hover"
+        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-white/15 py-2.5 text-sm text-emerald-50/90 transition-colors hover:bg-white/10"
         onClick={onGuest}
       >
         Continue as Guest
-        <small className="text-[11px] text-faint">Limited to 3 messages · No sign-up required</small>
+        <small className="text-[11px] text-emerald-100/50">Limited to 3 messages · No sign-up required</small>
       </button>
     </form>
   );
@@ -2214,18 +2265,21 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-app p-4 text-ink">
-        {/* Decorative gradient blobs */}
-        <div className="pointer-events-none absolute -top-24 -left-24 size-96 rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-24 -right-24 size-96 rounded-full bg-indigo-500/15 blur-3xl" />
-        <button
-          type="button"
-          className={`${BTN_GHOST} absolute right-4 top-4`}
-          onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-        >
-          {theme === "dark" ? "Light" : "Dark"}
-        </button>
-        <AuthScreen onAuthed={onAuthed} onGuest={startGuest} onAnonymous={startAnonymous} />
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#03120c] p-4 text-emerald-50 lg:p-8">
+        {/* Marketing backdrop: ambient gradients + Lady Justice artwork */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1100px_620px_at_75%_-10%,rgba(16,185,129,0.20),transparent),radial-gradient(900px_520px_at_-10%_110%,rgba(99,102,241,0.16),transparent)]" />
+        {/* Real statue artwork on the left, stylized gold emblem on the right */}
+        <img
+          src={ladyJusticePng}
+          alt=""
+          className="pointer-events-none absolute bottom-0 left-1/2 h-[72%] w-auto -translate-x-1/2 opacity-25 [mask-image:linear-gradient(to_top,black_82%,transparent)] lg:left-[4%] lg:h-[94%] lg:translate-x-0 lg:opacity-45"
+        />
+        <LadyJusticeArt className="pointer-events-none absolute bottom-0 right-[-40px] hidden h-[104%] w-auto lg:block lg:opacity-95" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#03120c] via-transparent to-[#03120c]/70" />
+        <div className="relative z-10 grid w-full max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_minmax(0,0.95fr)]">
+          <MarketingHero />
+          <AuthScreen onAuthed={onAuthed} onGuest={startGuest} onAnonymous={startAnonymous} />
+        </div>
       </div>
     );
   }
@@ -2258,7 +2312,7 @@ export default function App() {
           <>
             <button
               type="button"
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-line py-2.5 text-sm transition-colors hover:bg-side-hover"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98]"
               onClick={newJourney}
             >
               + New chat
@@ -2295,7 +2349,9 @@ export default function App() {
                 <li
                   key={item.journey_id}
                   className={`mb-0.5 rounded-xl transition-colors hover:bg-side-hover ${
-                    item.journey_id === journeyId ? "bg-side-hover" : ""
+                    item.journey_id === journeyId
+                      ? "border border-emerald-500/25 bg-gradient-to-r from-emerald-500/15 to-teal-500/5"
+                      : ""
                   }`}
                 >
                   {editingId === item.journey_id ? (
@@ -2381,7 +2437,7 @@ export default function App() {
       </aside>
 
       <div className="flex h-screen min-w-0 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
+        <header className="flex items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-emerald-500/10 via-transparent to-indigo-500/10 px-4 py-2.5">
           <button
             type="button"
             className={`${BTN_GHOST} md:hidden`}
@@ -2525,11 +2581,22 @@ export default function App() {
                 )}
               </div>
             )}
-            <main className="flex-1 overflow-auto">
+            <div className="relative min-h-0 flex-1">
+              <img
+                src={ladyJusticePng}
+                alt=""
+                className="pointer-events-none absolute bottom-0 right-4 hidden h-[72%] w-auto select-none opacity-[0.05] dark:opacity-[0.09] md:block"
+              />
+              <main className="h-full overflow-auto">
               <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
                 {messages.length === 0 && (
-                  <div className="pt-16 text-center animate-fade">
-                    <h2 className="m-0 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 bg-clip-text text-3xl font-bold text-transparent">
+                  <div className="flex flex-col items-center pt-12 text-center animate-fade">
+                    <img
+                      src={ladyJusticePng}
+                      alt=""
+                      className="pointer-events-none h-44 w-auto select-none [mask-image:linear-gradient(to_top,black_70%,transparent)]"
+                    />
+                    <h2 className="m-0 -mt-8 bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 bg-clip-text text-3xl font-black text-transparent">
                       {guestMode ? "Guest Mode" : "What can I help with?"}
                     </h2>
                     <p className="mt-2 text-sm text-muted">
@@ -2537,6 +2604,21 @@ export default function App() {
                         ? `Ask up to 3 legal questions. Sign up for unlimited access.`
                         : "Ask a legal question. Memory stays on this journey."}
                     </p>
+                    <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
+                      {EMPTY_SAMPLES.map((q) => (
+                        <button
+                          key={q}
+                          type="button"
+                          className="cursor-pointer rounded-full border border-line bg-elev/70 px-3.5 py-1.5 text-sm text-muted transition hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-ink active:scale-95"
+                          onClick={() => {
+                            setInput(q);
+                            inputRef.current?.focus();
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
                 {messages.map((msg, i) => (
@@ -2545,13 +2627,15 @@ export default function App() {
                     className={`flex animate-rise ${msg.role === "user" ? "justify-end" : "gap-2.5"}`}
                   >
                     {msg.role === "assistant" && (
-                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-xs font-bold text-white shadow">
+                      <span className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-xs font-bold text-white shadow ring-2 ring-emerald-500/25">
                         L
                       </span>
                     )}
                     <div
                       className={`min-w-0 max-w-[min(680px,100%)] ${
-                        msg.role === "user" ? "rounded-3xl bg-bubble px-4 py-2.5" : "flex-1 pt-0.5"
+                        msg.role === "user"
+                          ? "rounded-3xl rounded-br-md bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-2.5 text-white shadow-lg shadow-emerald-500/20"
+                          : "flex-1 pt-0.5"
                       }`}
                     >
                       {msg.role === "assistant" && (
@@ -2572,7 +2656,7 @@ export default function App() {
                       {msg.role === "assistant" && msg.hitl && (
                         <ApprovalCard hitl={msg.hitl} busy={phase !== "idle"} onDecide={resumeHitl} />
                       )}
-                      <div className="m-0 text-[15px]">
+                      <div className={`m-0 text-[15px] ${msg.role === "assistant" ? "rounded-2xl rounded-tl-md border border-line/70 bg-elev/70 px-4 py-3 shadow-sm backdrop-blur-sm" : ""}`}>
                         {msg.content ? (
                           msg.role === "assistant" ? (
                             <div className="leading-normal">
@@ -2675,7 +2759,13 @@ export default function App() {
                     </div>
                   </div>
                 ))}
-                {phase === "writing" && <p className="text-sm text-muted animate-pulse">Streaming…</p>}
+                {phase === "writing" && (
+                  <div className="flex items-center gap-1.5 pl-10 text-sm text-muted">
+                    <span className="size-1.5 animate-bounce rounded-full bg-emerald-500" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-teal-500 [animation-delay:120ms]" />
+                    <span className="size-1.5 animate-bounce rounded-full bg-indigo-500 [animation-delay:240ms]" />
+                  </div>
+                )}
                 {error && (
                   <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-danger">
                     {error}
@@ -2698,7 +2788,8 @@ export default function App() {
                 )}
                 <div ref={bottomRef} />
               </div>
-            </main>
+              </main>
+            </div>
             <div className="border-t border-line px-4 pb-3 pt-2">
               {uploadJob && uploadView === "hidden" && (
                 <button
@@ -2739,7 +2830,7 @@ export default function App() {
                 </div>
               )}
               <form
-                className="flex items-end gap-2 rounded-2xl border border-line bg-elev p-2 transition focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25"
+                className="flex items-end gap-2 rounded-2xl border border-line bg-elev p-2 shadow-lg shadow-black/10 transition focus-within:border-emerald-500/60 focus-within:ring-2 focus-within:ring-emerald-500/25"
                 onSubmit={send}
               >
                 <input
@@ -2777,7 +2868,7 @@ export default function App() {
                   }}
                 />
                 <button
-                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="grid size-9 shrink-0 cursor-pointer place-items-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
                   type="submit"
                   disabled={busy || !input.trim()}
                   aria-label="Send"
