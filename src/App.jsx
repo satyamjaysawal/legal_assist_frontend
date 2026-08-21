@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ProgressBar } from "./components/ui/ProgressBar";
 import { Guidebook } from "./components/Guidebook";
 import { LadyJusticeArt } from "./components/LadyJustice";
@@ -33,15 +34,31 @@ const MD_COMPONENTS = {
   blockquote: ({ node, ...props }) => (
     <blockquote className="my-1.5 border-l-[3px] border-accent px-3 text-muted" {...props} />
   ),
-  h1: ({ node, ...props }) => <h1 className="mb-1 mt-2 text-[1.3em] font-semibold" {...props} />,
-  h2: ({ node, ...props }) => <h2 className="mb-1 mt-2 text-[1.15em] font-semibold" {...props} />,
+  h1: ({ node, ...props }) => (
+    <h1 className="mb-1.5 mt-3 border-b border-line/70 pb-1 text-[1.3em] font-bold tracking-tight" {...props} />
+  ),
+  h2: ({ node, ...props }) => <h2 className="mb-1 mt-2.5 text-[1.15em] font-bold tracking-tight" {...props} />,
   h3: ({ node, ...props }) => <h3 className="mb-1 mt-2 text-[1.05em] font-semibold" {...props} />,
   hr: ({ node, ...props }) => <hr className="my-2 border-line" {...props} />,
   a: ({ node, ...props }) => (
     <a className="text-accent underline underline-offset-2" target="_blank" rel="noreferrer" {...props} />
   ),
   table: ({ node, ...props }) => (
-    <table className="my-2 w-full border-collapse text-sm [&_td]:border [&_td]:border-line [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:border-line [&_th]:bg-elev [&_th]:px-2 [&_th]:py-1" {...props} />
+    <div className="my-2.5 overflow-x-auto rounded-xl border border-line bg-elev/60 shadow-sm">
+      <table className="w-full border-collapse text-[13px] leading-snug" {...props} />
+    </div>
+  ),
+  thead: ({ node, ...props }) => (
+    <thead className="bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-indigo-500/10" {...props} />
+  ),
+  th: ({ node, ...props }) => (
+    <th className="border-b border-line px-3 py-2 text-left font-semibold" {...props} />
+  ),
+  td: ({ node, ...props }) => (
+    <td className="border-b border-line/60 px-3 py-2 align-top" {...props} />
+  ),
+  tbody: ({ node, ...props }) => (
+    <tbody className="[&>tr:last-child>td]:border-b-0 [&>tr:nth-child(even)]:bg-elev/70" {...props} />
   ),
 };
 
@@ -2585,9 +2602,9 @@ export default function App() {
               <img
                 src={ladyJusticePng}
                 alt=""
-                className="pointer-events-none absolute bottom-0 right-4 hidden h-[72%] w-auto select-none opacity-[0.05] dark:opacity-[0.09] md:block"
+                className="pointer-events-none absolute bottom-0 right-2 hidden h-[78%] w-auto select-none opacity-[0.16] [filter:sepia(0.3)_saturate(1.35)] drop-shadow-[0_12px_32px_rgba(16,185,129,0.18)] dark:opacity-[0.22] md:block"
               />
-              <main className="h-full overflow-auto">
+              <main className="h-full overflow-auto bg-gradient-to-b from-emerald-500/[0.05] via-transparent to-indigo-500/[0.06]">
               <div className="mx-auto w-full max-w-3xl space-y-4 px-4 py-6">
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center pt-12 text-center animate-fade">
@@ -2656,11 +2673,11 @@ export default function App() {
                       {msg.role === "assistant" && msg.hitl && (
                         <ApprovalCard hitl={msg.hitl} busy={phase !== "idle"} onDecide={resumeHitl} />
                       )}
-                      <div className={`m-0 text-[15px] ${msg.role === "assistant" ? "rounded-2xl rounded-tl-md border border-line/70 bg-elev/70 px-4 py-3 shadow-sm backdrop-blur-sm" : ""}`}>
+                      <div className={`m-0 text-[15px] ${msg.role === "assistant" ? "rounded-2xl rounded-tl-md border border-emerald-500/15 bg-elev/80 px-4 py-3 shadow-md shadow-emerald-500/5 backdrop-blur-sm" : ""}`}>
                         {msg.content ? (
                           msg.role === "assistant" ? (
                             <div className="leading-normal">
-                              <ReactMarkdown components={MD_COMPONENTS}>{msg.content}</ReactMarkdown>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>{msg.content}</ReactMarkdown>
                             </div>
                           ) : (
                             msg.content
