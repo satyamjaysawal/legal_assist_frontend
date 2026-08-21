@@ -753,11 +753,13 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={onClose}>
       <div
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+        className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
         onClick={(e) => e.stopPropagation()}
       >
+        <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-[-26px] h-[86%] w-auto select-none opacity-[0.08] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.14]" />
         <div className="flex items-center gap-3 border-b border-line px-5 py-4">
-          <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-xl shadow-lg shadow-emerald-500/25">
+          <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-[0px] shadow-lg shadow-emerald-500/25">
+            <Icon name="lawyer" className="size-5 text-white" />
             💬
           </div>
           <div className="min-w-0 flex-1">
@@ -969,7 +971,8 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-3 p-4 sm:p-6 animate-fade">
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 px-4 py-3 shadow-sm">
+      <div className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-indigo-500/10 px-4 py-3 shadow-sm">
+        <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-76px] right-2 h-52 w-auto select-none opacity-[0.1] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.16]" />
         <div>
           <p className="m-0 text-[11px] font-bold uppercase tracking-[0.16em] text-accent">Private workspace</p>
           <h2 className="m-0 text-xl font-bold">Memory</h2>
@@ -2342,7 +2345,7 @@ export default function App() {
           sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
         } md:static md:flex md:w-auto md:max-w-none md:shadow-none`}
       >
-        <img src={ladyJusticePng} alt="" className={`pointer-events-none absolute bottom-12 right-[-38px] h-52 w-auto select-none opacity-[0.12] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.2] ${sidebarCollapsed ? "md:hidden" : ""}`} />
+        <img src={ladyJusticePng} alt="" className={`pointer-events-none absolute bottom-8 right-[-72px] h-[28rem] w-auto select-none opacity-[0.16] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.24] ${sidebarCollapsed ? "md:hidden" : ""}`} />
         <div className={`flex items-center px-2.5 pb-3.5 pt-2.5 font-semibold ${sidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
           <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-md shadow-emerald-500/30">
             L
@@ -2509,7 +2512,7 @@ export default function App() {
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
             {guestMode && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {guestCount}/3 messages
@@ -2533,9 +2536,9 @@ export default function App() {
                 onClick={() => setLawyerChatOpen(true)}
                 title="Open real-time lawyer chat"
               >
-                <Icon name="lawyer" className="size-[18px]" /><span className="text-sm">Lawyer Chat</span>
+                <Icon name="lawyer" className="size-[18px]" /><span className="text-sm">Lawyer Chat</span>{/*
                 💬 Lawyer Chat
-              </button>
+                */}</button>
             )}
             <button
               type="button"
@@ -2582,7 +2585,8 @@ export default function App() {
         ) : (
           <>
             {showAgents && (
-              <div className="border-b border-line bg-elev/40 px-4 py-3 animate-fade">
+              <div className="relative overflow-hidden border-b border-line bg-elev/70 px-4 py-3 backdrop-blur-sm animate-fade">
+                <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-118px] right-3 h-72 w-auto select-none opacity-[0.09] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.15]" />
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="m-0 text-sm font-semibold">Registered Agents</h3>
                   <button type="button" className={BTN_GHOST} onClick={() => setShowAgents(false)}>
