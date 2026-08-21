@@ -70,6 +70,9 @@ function Icon({ name, className = "" }) {
   if (name === "overview") return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>;
   if (name === "agents") return <svg {...common}><circle cx="9" cy="8" r="3" /><path d="M3.5 20a5.5 5.5 0 0 1 11 0" /><path d="M16 11a3 3 0 0 0 0-6" /><path d="M20.5 20a5.5 5.5 0 0 0-3.5-5.1" /></svg>;
   if (name === "guide") return <svg {...common}><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></svg>;
+  if (name === "memory") return <svg {...common}><path d="M12 2a5 5 0 0 0-5 5v1a4 4 0 0 0-3 3.9V14a4 4 0 0 0 3 3.9V19a3 3 0 0 0 3 3h4a3 3 0 0 0 3-3v-1.1A4 4 0 0 0 20 14v-2.1A4 4 0 0 0 17 8V7a5 5 0 0 0-5-5Z" /><path d="M12 2v20M8 10h.01M16 10h.01M8 15h.01M16 15h.01" /></svg>;
+  if (name === "plus") return <svg {...common}><path d="M12 5v14M5 12h14" /></svg>;
+  if (name === "lawyer") return <svg {...common}><path d="M12 3 3 7l9 4 9-4-9-4Z" /><path d="M6 9.2V14c2.4 2 9.6 2 12 0V9.2" /><path d="M21 7v7" /><path d="M19.5 17h3" /></svg>;
   if (name === "upload") return <svg {...common}><path d="M12 16V3" /><path d="m7 8 5-5 5 5" /><path d="M5 21h14" /></svg>;
   if (name === "send") return <svg {...common}><path d="m22 2-7 20-4-9-9-4Z" /><path d="M22 2 11 13" /></svg>;
   if (name === "sun") return <svg {...common}><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></svg>;
@@ -2332,13 +2335,14 @@ export default function App() {
 
   return (
     <div className={`relative grid h-screen overflow-hidden bg-app text-ink transition-[grid-template-columns] duration-300 ${sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[276px_minmax(0,1fr)]"}`}>
-      <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-0 z-0 hidden h-[88%] max-w-[48vw] select-none object-contain opacity-[0.055] [filter:sepia(0.5)_saturate(1.25)] dark:opacity-[0.11] md:block" />
+      <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-0 z-0 h-[48%] max-w-[68vw] select-none object-contain opacity-[0.09] [filter:sepia(0.5)_saturate(1.25)] dark:opacity-[0.16] md:h-[88%] md:max-w-[48vw]" />
       {sidebarOpen && <button type="button" className="fixed inset-0 z-10 bg-black/45 backdrop-blur-[1px] md:hidden" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
       <aside
-        className={`z-20 flex-col border-r border-line bg-side/95 px-2 pb-3 pt-2.5 backdrop-blur-xl ${
+        className={`relative z-20 flex-col overflow-hidden border-r border-line bg-side/95 px-2 pb-3 pt-2.5 backdrop-blur-xl ${
           sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
         } md:static md:flex md:w-auto md:max-w-none md:shadow-none`}
       >
+        <img src={ladyJusticePng} alt="" className={`pointer-events-none absolute bottom-12 right-[-38px] h-52 w-auto select-none opacity-[0.12] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.2] ${sidebarCollapsed ? "md:hidden" : ""}`} />
         <div className={`flex items-center px-2.5 pb-3.5 pt-2.5 font-semibold ${sidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
           <span className="grid size-7 place-items-center rounded-lg bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-sm font-bold text-white shadow-md shadow-emerald-500/30">
             L
@@ -2370,7 +2374,7 @@ export default function App() {
               className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98]"
               onClick={newJourney}
             >
-              <span className="text-lg leading-none">+</span><span className={sidebarCollapsed ? "md:hidden" : ""}>New chat</span>
+              <Icon name="plus" className="size-[18px]" /><span className={sidebarCollapsed ? "md:hidden" : ""}>New chat</span>
             </button>
             <button
               type="button"
@@ -2492,20 +2496,20 @@ export default function App() {
       </aside>
 
       <div className="relative z-10 flex h-screen min-w-0 flex-col">
-        <header className="flex min-h-14 items-center justify-between gap-2 border-b border-line bg-app/80 px-3 py-2 backdrop-blur-xl sm:px-4">
+        <header className="flex min-h-14 items-center gap-2 overflow-x-auto border-b border-line bg-app/80 px-3 py-2 backdrop-blur-xl sm:px-4">
           <button
             type="button"
             className={`${BTN_GHOST} md:hidden`}
             onClick={() => setSidebarOpen((v) => !v)}
           >
-            <Icon name="menu" /><span className="hidden sm:inline">Menu</span>
+            <Icon name="menu" /><span>Menu</span>
           </button>
-          <h1 className="m-0 min-w-0 truncate text-base font-semibold">
+          <h1 className="m-0 max-w-44 shrink-0 truncate text-base font-semibold sm:max-w-xs">
             {guestMode
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap">
             {guestMode && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {guestCount}/3 messages
@@ -2513,34 +2517,35 @@ export default function App() {
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} ${showAgents ? "bg-accent/15 text-accent" : ""}`}
+              className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap ${showAgents ? "bg-accent/15 text-accent" : ""}`}
               onClick={() => setShowAgents((v) => !v)}
               title={showAgents ? "Hide registered agents list" : "Show registered agents list"}
             >
-              <Icon name="agents" /><span className="hidden xl:inline">Agents {showAgents ? "Hide" : "Show"}</span>
+              <Icon name="agents" /><span>Agents {showAgents ? "Hide" : "Show"}</span>
             </button>
-            <button type="button" className={`${BTN_GHOST} ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
-              <Icon name="guide" /><span className="hidden lg:inline">Agent Guide</span>
+            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
+              <Icon name="guide" /><span>Agent Guide</span>
             </button>
             {!guestMode && (
               <button
                 type="button"
-                className="cursor-pointer rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 text-sm font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
+                className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 text-[0px] font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
                 onClick={() => setLawyerChatOpen(true)}
                 title="Open real-time lawyer chat"
               >
+                <Icon name="lawyer" className="size-[18px]" /><span className="text-sm">Lawyer Chat</span>
                 💬 Lawyer Chat
               </button>
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} hidden sm:inline-flex`}
+              className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap`}
               onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
             >
-              <Icon name={theme === "dark" ? "sun" : "moon"} /><span className="hidden lg:inline">{theme === "dark" ? "Light" : "Dark"}</span>
+              <Icon name={theme === "dark" ? "sun" : "moon"} /><span>{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
-            <button type="button" className={BTN_GHOST} onClick={logout}>
-              <Icon name="logout" /><span className="hidden lg:inline">{guestMode ? "Exit guest" : "Log out"}</span>
+            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap`} onClick={logout}>
+              <Icon name="logout" /><span>{guestMode ? "Exit guest" : "Log out"}</span>
             </button>
           </div>
         </header>
