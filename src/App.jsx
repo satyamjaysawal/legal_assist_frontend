@@ -1094,7 +1094,7 @@ function MemoryDetail({ token, journeyId, onBack, onOpenJourney }) {
   );
 }
 
-function AuthScreen({ onAuthed, onGuest }) {
+function AuthScreen({ onAuthed, onGuest, onAnonymous }) {
   const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1123,6 +1123,18 @@ function AuthScreen({ onAuthed, onGuest }) {
       localStorage.setItem("legal_assist_role", data.user?.role || "user");
       localStorage.removeItem(GUEST_MODE_KEY);
       onAuthed(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function anonymous() {
+    setBusy(true);
+    setError("");
+    try {
+      await onAnonymous();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -1197,6 +1209,15 @@ function AuthScreen({ onAuthed, onGuest }) {
       <div className="flex items-center gap-3 text-xs text-faint before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">
         <span>or</span>
       </div>
+      <button
+        type="button"
+        disabled={busy}
+        className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 py-2.5 text-sm font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400"
+        onClick={anonymous}
+      >
+        🙋 Continue as user — no login
+        <small className="text-[11px] font-normal text-faint">Full access (chat, uploads, memory, approvals) · No sign-up required</small>
+      </button>
       <button
         type="button"
         className="flex w-full cursor-pointer flex-col items-center rounded-xl border border-line py-2.5 text-sm transition-colors hover:bg-side-hover"
@@ -1416,6 +1437,18 @@ export default function App() {
     setToken("guest");
     setUser({ name: "Guest", email: "guest@local", role: "guest", user_id: "guest" });
     setView("chat");
+  }
+
+  async function startAnonymous() {
+    // No-login full access: backend creates a role=user anonymous account.
+    const res = await fetch(`${API}/auth/anonymous`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Could not start the anonymous session");
+    localStorage.setItem("legal_assist_token", data.token);
+    localStorage.setItem("legal_assist_role", data.user?.role || "user");
+    localStorage.removeItem(GUEST_MODE_KEY);
+    setGuestMode(false);
+    onAuthed(data);
   }
 
   function onAuthed(data) {
@@ -2137,7 +2170,7 @@ export default function App() {
         >
           {theme === "dark" ? "Light" : "Dark"}
         </button>
-        <AuthScreen onAuthed={onAuthed} onGuest={startGuest} />
+        <AuthScreen onAuthed={onAuthed} onGuest={startGuest} onAnonymous={startAnonymous} />
       </div>
     );
   }
