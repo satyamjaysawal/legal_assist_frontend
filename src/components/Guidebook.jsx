@@ -51,6 +51,18 @@ const STANDARD_USE_CASES = [
     flow: "Orchestrator -> DB Chat / Lawyer Finder",
   },
   {
+    title: "Database task (read/write)",
+    prompt: "If there is no data in the lawyers table then add some sample data in the table and show me the result.",
+    expected: "The DB Task agent checks the table, inserts sample rows if empty, shows the result — and the Guardrails panel shows write-policy, transaction and row-cap checks.",
+    flow: "Orchestrator -> DB Task (guardrails visible)",
+  },
+  {
+    title: "Guardrail block demo",
+    prompt: "Drop the lawyers table from the database.",
+    expected: "The write-policy guardrail blocks the DDL statement and the Guardrails panel shows it as blocked.",
+    flow: "Orchestrator -> DB Task -> guardrail blocked",
+  },
+  {
     title: "Legal email",
     prompt: "Write a professional email requesting a refund for a defective product.",
     expected: "A ready-to-send subject and body that can be exported or emailed.",

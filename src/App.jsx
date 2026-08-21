@@ -438,6 +438,51 @@ function SqlCard({ sqlInfo }) {
   );
 }
 
+const GUARD_STATUS_META = {
+  passed: { icon: "✅", label: "passed", chip: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  enforced: { icon: "🛡️", label: "enforced", chip: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  blocked: { icon: "⛔", label: "blocked", chip: "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400" },
+};
+
+function GuardrailCard({ guardrails }) {
+  if (!guardrails?.length) return null;
+  const blocked = guardrails.filter((g) => g.status === "blocked").length;
+  return (
+    <details className="mb-2 overflow-hidden rounded-xl border border-amber-500/30 bg-elev/60 text-xs animate-fade" open>
+      <summary className={`${SUMMARY} flex flex-wrap items-center gap-2 px-3 py-2`}>
+        <span className="flex items-center gap-2 text-ink">
+          <span className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-amber-500 to-rose-600 text-[10px] text-white shadow-sm">
+            🛡
+          </span>
+          Guardrails
+        </span>
+        <span className="rounded-full border border-line bg-app px-2 py-0.5 text-[10px] font-medium text-muted">
+          {guardrails.length} check{guardrails.length !== 1 ? "s" : ""}
+        </span>
+        {blocked > 0 && (
+          <span className="rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] font-medium text-rose-600 dark:text-rose-400">
+            {blocked} blocked
+          </span>
+        )}
+      </summary>
+      <ul className="m-0 list-none space-y-1.5 border-t border-line px-3 py-2.5">
+        {guardrails.map((g, i) => {
+          const meta = GUARD_STATUS_META[g.status] || GUARD_STATUS_META.enforced;
+          return (
+            <li key={`${g.name}-${i}`} className="flex flex-wrap items-start gap-2">
+              <span className={`${CHIP} ${meta.chip} shrink-0`}>
+                {meta.icon} {g.name} · {meta.label}
+              </span>
+              <span className="min-w-0 flex-1 text-muted">{g.detail}</span>
+              {g.agent && <span className={`${CHIP} border-line text-faint`}>{AGENT_LABELS[g.agent] || g.agent}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 function LawyerChatModal({ token, userId, journeyId, onClose }) {
   const [lawyers, setLawyers] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -1883,6 +1928,13 @@ export default function App() {
                 tables: evt.tables || [],
               },
             });
+          } else if (evt.type === "guardrail") {
+            const guard = evt.guardrail || {};
+            if (guard.name) {
+              updateAssistant((prev) => ({
+                guardrails: [...(prev.guardrails || []), guard],
+              }));
+            }
           } else if (evt.type === "analysis") {
             updateAssistant({ analysis: evt.analysis });
             setPhase("writing");
@@ -2266,6 +2318,7 @@ export default function App() {
                         />
                       )}
                       {msg.role === "assistant" && msg.sqlInfo && <SqlCard sqlInfo={msg.sqlInfo} />}
+                      {msg.role === "assistant" && <GuardrailCard guardrails={msg.guardrails} />}
                       <div className="m-0 text-[15px]">
                         {msg.content ? (
                           msg.role === "assistant" ? (

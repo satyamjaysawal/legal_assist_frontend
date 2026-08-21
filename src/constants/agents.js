@@ -4,7 +4,7 @@ export const STEP_LABELS = {
   followups: "Follow-up generator", orchestrator: "Root agent (Orchestrator)",
   assistant: "Assistant agent", researcher: "Researcher agent", draft: "Draft agent",
   document_creator: "Document agent", email: "Email agent", lawyer_finder: "Lawyer finder",
-  db_chat: "Lawyer database (SQL)", case_strategy: "Case strategy agent",
+  db_chat: "Lawyer database (SQL)", db_task: "DB Task (read/write SQL)", case_strategy: "Case strategy agent",
   compliance: "Compliance agent", workflow_supervisor: "Workflow supervisor",
   negotiation: "Negotiation agent", risk_assessment: "Risk assessment agent",
   human_review: "Human approval checkpoint",
@@ -15,7 +15,7 @@ export const STEP_LABELS = {
 
 export const AGENT_LABELS = {
   assistant: "Assistant", researcher: "Researcher", draft: "Draft",
-  document_creator: "Document Creator", email: "Email", lawyer_finder: "Lawyer Finder", db_chat: "DB Chat",
+  document_creator: "Document Creator", email: "Email", lawyer_finder: "Lawyer Finder", db_chat: "DB Chat", db_task: "DB Task",
   case_strategy: "Case Strategy", compliance: "Compliance", workflow_supervisor: "Workflow Supervisor",
   negotiation: "Negotiation", risk_assessment: "Risk Assessment", human_review: "Human Review",
 };
