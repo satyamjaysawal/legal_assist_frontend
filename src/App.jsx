@@ -483,6 +483,111 @@ function GuardrailCard({ guardrails }) {
   );
 }
 
+const HITL_DECISION_META = {
+  approve: { icon: "✅", label: "Approved", chip: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+  reject: { icon: "❌", label: "Rejected", chip: "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400" },
+  changes: { icon: "✏️", label: "Changes requested", chip: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  regenerate: { icon: "🔁", label: "Regeneration requested", chip: "border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
+};
+
+function ApprovalCard({ hitl, busy, onDecide }) {
+  const [option, setOption] = useState("");
+  const [comment, setComment] = useState("");
+  if (!hitl?.requestId) return null;
+  const decided = hitl.status === "decided";
+  const decidedMeta = HITL_DECISION_META[hitl.decision];
+  const decide = (decision) => {
+    if (busy || decided) return;
+    onDecide(decision, comment.trim());
+  };
+  return (
+    <div className="mb-2 overflow-hidden rounded-xl border border-violet-500/40 bg-elev/60 text-xs shadow-md shadow-violet-500/10 animate-fade">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line px-3 py-2">
+        <span className="grid size-5 place-items-center rounded-md bg-gradient-to-br from-violet-500 to-indigo-600 text-[10px] text-white shadow-sm">
+          🙋
+        </span>
+        <span className="text-[13px] font-semibold text-ink">Human approval required</span>
+        <span className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+          {decided ? "decided" : "paused — waiting for you"}
+        </span>
+      </div>
+      <div className="space-y-2.5 px-3 py-2.5">
+        <p className="m-0 text-[13px] text-ink">{hitl.question}</p>
+        {!!hitl.draft && (
+          <details className="overflow-hidden rounded-lg border border-line" open={!decided}>
+            <summary className={`${SUMMARY} px-3 py-1.5`}>📄 Review the draft</summary>
+            <pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap bg-app px-3 py-2 font-mono text-[11.5px] leading-relaxed text-muted">
+              {hitl.draft}
+            </pre>
+          </details>
+        )}
+        {decided ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`${CHIP} ${decidedMeta?.chip || "border-line text-muted"}`}>
+              {decidedMeta?.icon} {decidedMeta?.label || hitl.decision}
+            </span>
+            {!!hitl.comment && <span className="min-w-0 flex-1 text-muted">“{hitl.comment}”</span>}
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => decide("approve")}
+                className="rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-[12px] font-semibold text-emerald-600 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400"
+              >
+                ✅ Yes, approve
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => decide("reject")}
+                className="rounded-lg border border-rose-500/50 bg-rose-500/10 px-3 py-1.5 text-[12px] font-semibold text-rose-600 transition hover:bg-rose-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-rose-400"
+              >
+                ❌ No, reject
+              </button>
+              <select
+                value={option}
+                disabled={busy}
+                onChange={(e) => setOption(e.target.value)}
+                className="rounded-lg border border-line bg-app px-2.5 py-1.5 text-[12px] text-ink disabled:opacity-50"
+              >
+                <option value="">Other…</option>
+                {(hitl.options || [])
+                  .filter((o) => o.id !== "approve" && o.id !== "reject")
+                  .map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+              </select>
+              {!!option && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => decide(option)}
+                  className="rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-3 py-1.5 text-[12px] font-semibold text-indigo-600 transition hover:bg-indigo-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-400"
+                >
+                  Apply
+                </button>
+              )}
+            </div>
+            <textarea
+              value={comment}
+              disabled={busy}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Comments / what should change (optional)…"
+              rows={2}
+              className="w-full resize-y rounded-lg border border-line bg-app px-2.5 py-1.5 text-[12px] text-ink placeholder:text-faint focus:border-violet-500/60 focus:outline-none disabled:opacity-50"
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function LawyerChatModal({ token, userId, journeyId, onClose }) {
   const [lawyers, setLawyers] = useState(null);
   const [loadError, setLoadError] = useState("");
@@ -1744,6 +1849,183 @@ export default function App() {
     setEditingId("");
   }
 
+  // ── Shared SSE plumbing for /chat/stream/v2 and /chat/hitl/resume ──
+  const patchLastAssistant = (patch) => {
+    setMessages((current) => {
+      const next = [...current];
+      const last = next[next.length - 1];
+      if (!last || last.role !== "assistant") return current;
+      const applied = typeof patch === "function" ? patch(last) : patch;
+      next[next.length - 1] = { ...last, ...applied };
+      return next;
+    });
+  };
+
+  function applyStreamEvent(evt, ctx) {
+    if (evt.type === "thinking") {
+      patchLastAssistant((prev) => ({
+        trace: { ...(prev.trace || {}), thinking: evt.text },
+      }));
+      setPhase("analysing");
+    } else if (evt.type === "flow") {
+      patchLastAssistant((prev) => ({
+        trace: { ...(prev.trace || {}), steps: evt.steps || [] },
+      }));
+    } else if (evt.type === "retrieval") {
+      patchLastAssistant((prev) => ({
+        trace: {
+          ...(prev.trace || {}),
+          retrieval: { report: evt.report, hits: evt.hits || [] },
+        },
+      }));
+    } else if (evt.type === "cache") {
+      patchLastAssistant((prev) => ({
+        trace: { ...(prev.trace || {}), cache: evt.report },
+      }));
+    } else if (evt.type === "cache_write") {
+      patchLastAssistant((prev) => ({
+        trace: {
+          ...(prev.trace || {}),
+          cacheWrite: evt.report,
+          cache: prev.trace?.cache || evt.report,
+        },
+      }));
+    } else if (evt.type === "agent_route") {
+      patchLastAssistant({
+        routedTo: evt.routed_to || null,
+        analysis: evt.analysis || null,
+      });
+      setPhase("writing");
+    } else if (evt.type === "workflow") {
+      patchLastAssistant((prev) => ({
+        workflow: evt.workflow || null,
+        trace: { ...(prev.trace || {}), workflow: evt.workflow || null },
+      }));
+    } else if (evt.type === "stage") {
+      const stage = evt.stage || {};
+      if (stage.stage_id) {
+        patchLastAssistant((prev) => {
+          const stages = [...((prev.trace && prev.trace.stages) || [])];
+          const idx = stages.findIndex((s) => s.stage_id === stage.stage_id);
+          if (idx >= 0) stages[idx] = { ...stages[idx], ...stage };
+          else stages.push(stage);
+          return { trace: { ...(prev.trace || {}), stages } };
+        });
+      }
+    } else if (evt.type === "memory") {
+      setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
+      patchLastAssistant((prev) => ({
+        memoryLayers: evt.layers || [],
+        trace: { ...(prev.trace || {}), memoryLayers: evt.layers || [] },
+      }));
+      if (evt.journey_id) setJourneyId(evt.journey_id);
+    } else if (evt.type === "memory_write") {
+      setMemory((prev) => ({ ...prev, writes: evt.writes || [] }));
+      patchLastAssistant((prev) => ({
+        trace: { ...(prev.trace || {}), writes: evt.writes || [] },
+      }));
+      if (evt.title) {
+        setJourneys((prev) =>
+          prev.map((item) =>
+            item.journey_id === (evt.journey_id || journeyId)
+              ? { ...item, title: evt.title }
+              : item
+          )
+        );
+      }
+    } else if (evt.type === "followups") {
+      setFollowups(evt.questions || []);
+    } else if (evt.type === "sql") {
+      patchLastAssistant({
+        sqlInfo: {
+          sql: evt.sql || "",
+          rowCount: evt.row_count ?? 0,
+          columns: evt.columns || [],
+          tables: evt.tables || [],
+        },
+      });
+    } else if (evt.type === "guardrail") {
+      const guard = evt.guardrail || {};
+      if (guard.name) {
+        patchLastAssistant((prev) => ({
+          guardrails: [...(prev.guardrails || []), guard],
+        }));
+      }
+    } else if (evt.type === "hitl") {
+      // Human-in-the-loop approval request → show the in-chat approval box.
+      patchLastAssistant({
+        hitl: {
+          requestId: evt.request_id || "",
+          stageId: evt.stage_id || "",
+          question: evt.question || "Do you approve this draft?",
+          draft: evt.draft || "",
+          options: evt.options || [],
+          status: "pending",
+          decision: "",
+          comment: "",
+        },
+      });
+    } else if (evt.type === "analysis") {
+      patchLastAssistant({ analysis: evt.analysis });
+      setPhase("writing");
+      if (evt.model) setModel(evt.model);
+    } else if (evt.type === "token") {
+      ctx.assembled += evt.content || "";
+      patchLastAssistant({ content: ctx.assembled });
+      setPhase("writing");
+    } else if (evt.type === "done" && evt.model) {
+      setModel(evt.model);
+    } else if (evt.type === "error") {
+      throw new Error(evt.detail || "Stream failed");
+    }
+  }
+
+  async function consumeSseStream(res, ctx) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer = parseSseBuffer(buffer + decoder.decode(value, { stream: true }), (evt) =>
+        applyStreamEvent(evt, ctx)
+      );
+    }
+  }
+
+  // Resume a paused HITL workflow with the human's decision (Claude-Code style).
+  async function resumeHitl(decision, comment = "") {
+    if (phase !== "idle") return;
+    const last = messages[messages.length - 1];
+    const hitl = last?.hitl;
+    if (!hitl?.requestId || hitl.status === "decided") return;
+    // Lock the card immediately so the decision cannot be sent twice.
+    patchLastAssistant((prev) => ({ hitl: { ...prev.hitl, status: "decided", decision, comment } }));
+    setPhase("writing");
+    setError("");
+    try {
+      const res = await fetch(`${API}/chat/hitl/resume`, {
+        method: "POST",
+        headers: authHeaders(token),
+        body: JSON.stringify({ request_id: hitl.requestId, decision, comment }),
+      });
+      if (!res.ok || !res.body) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Resume failed (${res.status})`);
+      }
+      // Continue streaming into the same assistant message.
+      const ctx = { assembled: last?.content || "" };
+      await consumeSseStream(res, ctx);
+    } catch (err) {
+      setError(err.message || "Could not resume the workflow");
+      // Unlock the card so the human can try again.
+      patchLastAssistant((prev) => ({ hitl: { ...prev.hitl, status: "pending" } }));
+    } finally {
+      setPhase("idle");
+      inputRef.current?.focus();
+    }
+  }
+
   async function send(event, preset) {
     if (event?.preventDefault) event.preventDefault();
     const text = (preset ?? input).trim();
@@ -1813,17 +2095,6 @@ export default function App() {
     setError("");
     setFollowups([]);
 
-    const updateAssistant = (patch) => {
-      setMessages((current) => {
-        const next = [...current];
-        const last = next[next.length - 1];
-        if (!last || last.role !== "assistant") return current;
-        const applied = typeof patch === "function" ? patch(last) : patch;
-        next[next.length - 1] = { ...last, ...applied };
-        return next;
-      });
-    };
-
     try {
       const res = await fetch(`${API}/chat/stream/v2`, {
         method: "POST",
@@ -1838,119 +2109,9 @@ export default function App() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.detail || `Request failed (${res.status})`);
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let assembled = "";
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer = parseSseBuffer(buffer + decoder.decode(value, { stream: true }), (evt) => {
-          if (evt.type === "thinking") {
-            updateAssistant((prev) => ({
-              trace: { ...(prev.trace || {}), thinking: evt.text },
-            }));
-            setPhase("analysing");
-          } else if (evt.type === "flow") {
-            updateAssistant((prev) => ({
-              trace: { ...(prev.trace || {}), steps: evt.steps || [] },
-            }));
-          } else if (evt.type === "retrieval") {
-            updateAssistant((prev) => ({
-              trace: {
-                ...(prev.trace || {}),
-                retrieval: { report: evt.report, hits: evt.hits || [] },
-              },
-            }));
-          } else if (evt.type === "cache") {
-            updateAssistant((prev) => ({
-              trace: { ...(prev.trace || {}), cache: evt.report },
-            }));
-          } else if (evt.type === "cache_write") {
-            updateAssistant((prev) => ({
-              trace: {
-                ...(prev.trace || {}),
-                cacheWrite: evt.report,
-                cache: prev.trace?.cache || evt.report,
-              },
-            }));
-          } else if (evt.type === "agent_route") {
-            updateAssistant({
-              routedTo: evt.routed_to || null,
-              analysis: evt.analysis || null,
-            });
-            setPhase("writing");
-          } else if (evt.type === "workflow") {
-            updateAssistant((prev) => ({
-              workflow: evt.workflow || null,
-              trace: { ...(prev.trace || {}), workflow: evt.workflow || null },
-            }));
-          } else if (evt.type === "stage") {
-            const stage = evt.stage || {};
-            if (stage.stage_id) {
-              updateAssistant((prev) => {
-                const stages = [...((prev.trace && prev.trace.stages) || [])];
-                const idx = stages.findIndex((s) => s.stage_id === stage.stage_id);
-                if (idx >= 0) stages[idx] = { ...stages[idx], ...stage };
-                else stages.push(stage);
-                return { trace: { ...(prev.trace || {}), stages } };
-              });
-            }
-          } else if (evt.type === "memory") {
-            setMemory((prev) => ({ ...prev, layers: evt.layers || [], facts: evt.facts || [] }));
-            updateAssistant((prev) => ({
-              memoryLayers: evt.layers || [],
-              trace: { ...(prev.trace || {}), memoryLayers: evt.layers || [] },
-            }));
-            if (evt.journey_id) setJourneyId(evt.journey_id);
-          } else if (evt.type === "memory_write") {
-            setMemory((prev) => ({ ...prev, writes: evt.writes || [] }));
-            updateAssistant((prev) => ({
-              trace: { ...(prev.trace || {}), writes: evt.writes || [] },
-            }));
-            if (evt.title) {
-              setJourneys((prev) =>
-                prev.map((item) =>
-                  item.journey_id === (evt.journey_id || journeyId)
-                    ? { ...item, title: evt.title }
-                    : item
-                )
-              );
-            }
-          } else if (evt.type === "followups") {
-            setFollowups(evt.questions || []);
-          } else if (evt.type === "sql") {
-            updateAssistant({
-              sqlInfo: {
-                sql: evt.sql || "",
-                rowCount: evt.row_count ?? 0,
-                columns: evt.columns || [],
-                tables: evt.tables || [],
-              },
-            });
-          } else if (evt.type === "guardrail") {
-            const guard = evt.guardrail || {};
-            if (guard.name) {
-              updateAssistant((prev) => ({
-                guardrails: [...(prev.guardrails || []), guard],
-              }));
-            }
-          } else if (evt.type === "analysis") {
-            updateAssistant({ analysis: evt.analysis });
-            setPhase("writing");
-            if (evt.model) setModel(evt.model);
-          } else if (evt.type === "token") {
-            assembled += evt.content || "";
-            updateAssistant({ content: assembled });
-            setPhase("writing");
-          } else if (evt.type === "done" && evt.model) {
-            setModel(evt.model);
-          } else if (evt.type === "error") {
-            throw new Error(evt.detail || "Stream failed");
-          }
-        });
-      }
-      if (!assembled.trim()) throw new Error("The assistant returned an empty response. The AI model may be unavailable — please try again in a moment.");
+      const ctx = { assembled: "" };
+      await consumeSseStream(res, ctx);
+      if (!ctx.assembled.trim()) throw new Error("The assistant returned an empty response. The AI model may be unavailable — please try again in a moment.");
       fetch(`${API}/journeys`, { headers: authHeaders(token) })
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => data?.journeys && setJourneys(data.journeys))
@@ -2319,6 +2480,9 @@ export default function App() {
                       )}
                       {msg.role === "assistant" && msg.sqlInfo && <SqlCard sqlInfo={msg.sqlInfo} />}
                       {msg.role === "assistant" && <GuardrailCard guardrails={msg.guardrails} />}
+                      {msg.role === "assistant" && msg.hitl && (
+                        <ApprovalCard hitl={msg.hitl} busy={phase !== "idle"} onDecide={resumeHitl} />
+                      )}
                       <div className="m-0 text-[15px]">
                         {msg.content ? (
                           msg.role === "assistant" ? (
