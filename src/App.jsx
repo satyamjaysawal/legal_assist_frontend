@@ -10,7 +10,23 @@ import { AGENT_LABELS, GUEST_MODE_KEY, MAX_UPLOAD_BYTES, STEP_LABELS, UPLOAD_STE
 import { formatBytes, formatTime as fmtWhen, lastUniqueSteps } from "./lib/formatters";
 import { authHeaders } from "./lib/http";
 import { parseSseBuffer } from "./lib/streaming";
-import { BTN_GHOST, BTN_GRADIENT, CHIP, INPUT_FIELD, SUMMARY } from "./styles/classes";
+import { useAppDispatch, useAppSelector } from "./store/hooks";
+import { incrementGuestCount, guestStarted, loggedOut, sessionStarted, setUser } from "./store/slices/authSlice";
+import { setHealth, setModel } from "./store/slices/catalogSlice";
+import {
+  resetUi,
+  setLawyerChatOpen,
+  setShowAgents,
+  setSidebarOpen,
+  setView,
+  toggleLawyerChat,
+  toggleShowAgents,
+  toggleSidebarCollapsed,
+  toggleSidebarOpen,
+  toggleTheme,
+  toggleView,
+} from "./store/slices/uiSlice";
+import { BTN_GHOST, BTN_GRADIENT, CHIP, HEADER_BTN, INPUT_FIELD, SUMMARY } from "./styles/classes";
 
 // Production is intentionally pinned to the deployed API. Local development
 // may set VITE_API_URL, or leave it empty to use the Vite proxy.
@@ -82,12 +98,6 @@ function Icon({ name, className = "" }) {
   if (name === "moon") return <svg {...common}><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.6 6.6 0 0 0 21 12.8Z" /></svg>;
   if (name === "logout") return <svg {...common}><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /><path d="M21 3v18" /></svg>;
   return null;
-}
-
-function readTheme() {
-  const saved = localStorage.getItem("legal_assist_theme");
-  if (saved === "light" || saved === "dark") return saved;
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 function stepTone(status) {
@@ -1458,31 +1468,26 @@ function Profile({ user, journeys, token, onBack, onUser }) {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState(readTheme);
-  const [token, setToken] = useState(() => {
-    const saved = localStorage.getItem("legal_assist_token");
-    if (saved) return saved;
-    if (localStorage.getItem(GUEST_MODE_KEY)) return "guest";
-    return "";
-  });
-  const [user, setUser] = useState(null);
-  const [guestMode, setGuestMode] = useState(() => !!localStorage.getItem(GUEST_MODE_KEY));
-  const [guestCount, setGuestCount] = useState(0);
+  const dispatch = useAppDispatch();
+  const theme = useAppSelector((s) => s.ui.theme);
+  const view = useAppSelector((s) => s.ui.view);
+  const showAgents = useAppSelector((s) => s.ui.showAgents);
+  const sidebarOpen = useAppSelector((s) => s.ui.sidebarOpen);
+  const sidebarCollapsed = useAppSelector((s) => s.ui.sidebarCollapsed);
+  const lawyerChatOpen = useAppSelector((s) => s.ui.lawyerChatOpen);
+  const token = useAppSelector((s) => s.auth.token);
+  const user = useAppSelector((s) => s.auth.user);
+  const guestMode = useAppSelector((s) => s.auth.guestMode);
+  const guestCount = useAppSelector((s) => s.auth.guestCount);
+  const agents = useAppSelector((s) => s.catalog.agents);
+  const connectors = useAppSelector((s) => s.catalog.connectors);
   const [journeys, setJourneys] = useState([]);
   const [journeyId, setJourneyId] = useState("");
-  const [view, setView] = useState("chat");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [phase, setPhase] = useState("idle");
   const [error, setError] = useState("");
-  const [model, setModel] = useState("");
   const [memory, setMemory] = useState({ layers: [], writes: [], facts: [] });
-  const [stores, setStores] = useState(null);
-  const [agents, setAgents] = useState([]);
-  const [connectors, setConnectors] = useState([]);
-  const [showAgents, setShowAgents] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("legal_assist_sidebar") === "collapsed");
   const [followups, setFollowups] = useState([]);
   const [editingId, setEditingId] = useState("");
   const [editTitle, setEditTitle] = useState("");
@@ -1505,7 +1510,6 @@ export default function App() {
   const [wizardChat, setWizardChat] = useState([]);
   const [wizardDone, setWizardDone] = useState(false);
   const wizardInputRef = useRef(null);
-  const [lawyerChatOpen, setLawyerChatOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -1520,10 +1524,7 @@ export default function App() {
     fetch(`${API}/health`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.model) setModel(data.model);
-        if (data?.memory) setStores(data.memory);
-        if (data?.agents) setAgents(data.agents);
-        if (data?.connectors) setConnectors(data.connectors);
+        if (data) dispatch(setHealth(data));
       })
       .catch(() => {});
   }, []);
@@ -1540,7 +1541,7 @@ export default function App() {
       })
       .then((data) => {
         if (!data) return;
-        setUser(data.user);
+        dispatch(setUser(data.user));
         setJourneys(data.journeys || []);
         if (!journeyId && data.journeys?.[0]?.journey_id) {
           setJourneyId(data.journeys[0].journey_id);
@@ -1584,23 +1585,17 @@ export default function App() {
     localStorage.removeItem("legal_assist_token");
     localStorage.removeItem("legal_assist_role");
     localStorage.removeItem(GUEST_MODE_KEY);
-    setToken("");
-    setUser(null);
-    setGuestMode(false);
-    setGuestCount(0);
+    dispatch(loggedOut());
+    dispatch(resetUi());
     setJourneys([]);
     setJourneyId("");
     setMessages([]);
-    setView("chat");
   }
 
   function startGuest() {
     localStorage.setItem(GUEST_MODE_KEY, "1");
-    setGuestMode(true);
-    setGuestCount(0);
-    setToken("guest");
-    setUser({ name: "Guest", email: "guest@local", role: "guest", user_id: "guest" });
-    setView("chat");
+    dispatch(guestStarted());
+    dispatch(setView("chat"));
   }
 
   async function startAnonymous() {
@@ -1611,17 +1606,15 @@ export default function App() {
     localStorage.setItem("legal_assist_token", data.token);
     localStorage.setItem("legal_assist_role", data.user?.role || "user");
     localStorage.removeItem(GUEST_MODE_KEY);
-    setGuestMode(false);
     onAuthed(data);
   }
 
   function onAuthed(data) {
-    setToken(data.token);
-    setUser(data.user);
+    dispatch(sessionStarted(data));
     const list = data.journeys?.length ? data.journeys : data.journey ? [data.journey] : [];
     setJourneys(list);
     setJourneyId(data.journey?.journey_id || list[0]?.journey_id || "");
-    setView("chat");
+    dispatch(setView("chat"));
   }
 
   async function newJourney() {
@@ -1638,8 +1631,8 @@ export default function App() {
     setMemory({ layers: [], writes: [], facts: [] });
     setFollowups([]);
     setDocs([]);
-    setView("chat");
-    setSidebarOpen(false);
+    dispatch(setView("chat"));
+    dispatch(setSidebarOpen(false));
   }
 
   async function uploadFile(event) {
@@ -1994,7 +1987,7 @@ export default function App() {
     setUploadView("open");
     setDocs([]);
     setMessages([]);
-    setView("chat");
+    dispatch(setView("chat"));
     if (id !== nextId && nextId) {
       fetch(`${API}/journeys/${nextId}`, { headers: authHeaders(token) })
         .then((res) => (res.ok ? res.json() : null))
@@ -2026,7 +2019,7 @@ export default function App() {
       setDocs([]);
       setMessages([]);
       setMemory({ layers: [], writes: [], facts: [] });
-      setView("chat");
+      dispatch(setView("chat"));
     } catch (err) {
       setError(err.message || "Could not delete chats");
     }
@@ -2165,13 +2158,13 @@ export default function App() {
     } else if (evt.type === "analysis") {
       patchLastAssistant({ analysis: evt.analysis });
       setPhase("writing");
-      if (evt.model) setModel(evt.model);
+      if (evt.model) dispatch(setModel(evt.model));
     } else if (evt.type === "token") {
       ctx.assembled += evt.content || "";
       patchLastAssistant({ content: ctx.assembled });
       setPhase("writing");
     } else if (evt.type === "done" && evt.model) {
-      setModel(evt.model);
+      dispatch(setModel(evt.model));
     } else if (evt.type === "error") {
       throw new Error(evt.detail || "Stream failed");
     }
@@ -2269,7 +2262,7 @@ export default function App() {
           routedTo: data.routed_to || null,
           trace: { thinking: "Done.", steps: [] },
         });
-        setGuestCount((c) => c + 1);
+        dispatch(incrementGuestCount());
         setPhase("idle");
       } catch (err) {
         setError(err.message || "Could not reach the assistant");
@@ -2349,10 +2342,10 @@ export default function App() {
   return (
     <div className={`relative grid h-dvh min-h-0 overflow-x-hidden overflow-y-auto bg-app text-ink transition-[grid-template-columns] duration-300 md:overflow-hidden ${sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[276px_minmax(0,1fr)]"}`}>
       <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-0 z-0 h-[48%] max-w-[68vw] select-none object-contain opacity-[0.09] [filter:sepia(0.5)_saturate(1.25)] dark:opacity-[0.16] md:h-[88%] md:max-w-[48vw]" />
-      {sidebarOpen && <button type="button" className="fixed inset-0 z-10 bg-black/45 backdrop-blur-[1px] md:hidden" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
+      {sidebarOpen && <button type="button" className="fixed inset-0 z-20 bg-black/45 backdrop-blur-[1px] md:hidden" aria-label="Close navigation" onClick={() => dispatch(setSidebarOpen(false))} />}
       <aside
-        className={`relative z-20 flex-col overflow-y-auto border-r border-line bg-side/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-xl ${
-          sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
+        className={`relative z-40 flex-col overflow-y-auto border-r border-line bg-side/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-xl ${
+          sidebarOpen ? "fixed inset-y-0 left-0 z-40 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
         } md:static md:flex md:w-auto md:max-w-none md:overflow-hidden md:shadow-none`}
       >
         <img src={ladyJusticePng} alt="" className={`pointer-events-none absolute bottom-8 right-[-72px] h-[28rem] w-auto select-none opacity-[0.16] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.24] ${sidebarCollapsed ? "md:hidden" : ""}`} />
@@ -2361,7 +2354,7 @@ export default function App() {
             L
           </span>
           <span className={sidebarCollapsed ? "truncate md:hidden" : "truncate"}>Legal Assist</span>
-          <button type="button" className={`${BTN_GHOST} ml-auto hidden size-8 place-items-center p-0 md:grid`} onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"}>
+          <button type="button" className={`${BTN_GHOST} ml-auto hidden size-8 place-items-center p-0 md:grid`} onClick={() => dispatch(toggleSidebarCollapsed())} aria-label={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"} title={sidebarCollapsed ? "Expand sidebar" : "Minimize sidebar"} aria-pressed={!sidebarCollapsed}>
             <Icon name={sidebarCollapsed ? "expand" : "collapse"} />
           </button>
         </div>
@@ -2377,8 +2370,9 @@ export default function App() {
             <button
               type="button"
               className={`mb-1 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-side-hover ${view === "chat" ? "bg-side-hover font-medium text-ink" : ""}`}
-              onClick={() => { setView("chat"); setSidebarOpen(false); }}
+              onClick={() => { dispatch(setView("chat")); dispatch(setSidebarOpen(false)); }}
               title="Overview"
+              aria-pressed={view === "chat"}
             >
               <Icon name="overview" className="shrink-0" /><span className={sidebarCollapsed ? "md:hidden" : ""}>Overview</span>
             </button>
@@ -2391,17 +2385,18 @@ export default function App() {
             </button>
             <button
               type="button"
-              className={`mt-2 w-full cursor-pointer rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-side-hover ${
-                view === "memory" ? "bg-side-hover font-medium" : ""
+              className={`mt-2 flex w-full cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-emerald-500/10 ${
+                view === "memory" ? "bg-emerald-500/15 font-semibold text-accent ring-1 ring-emerald-500/20" : "text-muted"
               }`}
               onClick={() => {
-                setView("memory");
-                setSidebarOpen(false);
+                dispatch(toggleView("memory"));
+                dispatch(setSidebarOpen(false));
               }}
+              aria-pressed={view === "memory"}
+              title={view === "memory" ? "Hide memory" : "Show memory"}
             >
-              <Icon name="memory" className="size-[18px]" /><span className={sidebarCollapsed ? "md:hidden" : ""}>Memory</span>{/*
-              <span className="inline-flex items-center gap-2"><span>◈</span><span className={sidebarCollapsed ? "md:hidden" : ""}>Memory</span></span>
-              */}</button>
+              <Icon name="memory" className="size-[18px] shrink-0" /><span className={sidebarCollapsed ? "md:hidden" : "whitespace-nowrap"}>Memory</span>
+            </button>
           </>
         )}
         {!guestMode && (
@@ -2451,8 +2446,8 @@ export default function App() {
                         onClick={() => {
                           setJourneyId(item.journey_id);
                           setFollowups([]);
-                          setView("chat");
-                          setSidebarOpen(false);
+                          dispatch(setView("chat"));
+                          dispatch(setSidebarOpen(false));
                         }}
                       >
                         <strong className="font-medium">{item.title}</strong>
@@ -2496,7 +2491,8 @@ export default function App() {
           <button
             type="button"
             className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors hover:bg-side-hover"
-            onClick={() => (guestMode ? logout() : setView("profile"))}
+            onClick={() => (guestMode ? logout() : dispatch(toggleView("profile")))}
+            aria-pressed={!guestMode && view === "profile"}
           >
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-sm font-bold text-white shadow">
               <Icon name="profile" className="size-[17px]" />
@@ -2510,21 +2506,22 @@ export default function App() {
       </aside>
 
       <div className="relative z-10 flex h-full min-h-0 min-w-0 w-full flex-col">
-        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-line bg-app/80 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl sm:flex-nowrap sm:px-4">
+        <header className="relative z-30 flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-line bg-app/80 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl sm:px-4">
           <button
             type="button"
-            className={`${BTN_GHOST} inline-flex items-center gap-1.5 md:hidden`}
-            onClick={() => setSidebarOpen((v) => !v)}
-            aria-label="Open navigation"
+            className={`${HEADER_BTN} md:hidden`}
+            onClick={() => dispatch(toggleSidebarOpen())}
+            aria-label={sidebarOpen ? "Close navigation" : "Open navigation"}
+            aria-pressed={sidebarOpen}
           >
-            <Icon name="menu" /><span className="sm:inline">Menu</span>
+            <Icon name="menu" /><span>Menu</span>
           </button>
           <h1 className="m-0 min-w-0 flex-1 truncate text-base font-semibold sm:max-w-xs sm:flex-none">
             {guestMode
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:flex-none sm:flex-nowrap">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:flex-none">
             {guestMode && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {guestCount}/3 messages
@@ -2532,40 +2529,117 @@ export default function App() {
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} inline-flex items-center gap-1.5 ${showAgents ? "bg-accent/15 text-accent" : ""}`}
-              onClick={() => setShowAgents((v) => !v)}
-              title={showAgents ? "Hide registered agents list" : "Show registered agents list"}
-              aria-label={showAgents ? "Hide registered agents list" : "Show registered agents list"}
+              className={`${HEADER_BTN} ${showAgents ? "bg-accent/15 text-accent" : ""}`}
+              onClick={() => dispatch(toggleShowAgents())}
+              title={showAgents ? "Hide agent list" : "Show agent list"}
+              aria-label={showAgents ? "Hide agent list" : "Show agent list"}
+              aria-pressed={showAgents}
             >
-              <Icon name="agents" /><span className="hidden sm:inline">Agents {showAgents ? "Hide" : "Show"}</span>
+              <Icon name="agents" /><span>{showAgents ? "Hide List" : "Agent List"}</span>
             </button>
-            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows" aria-label="Open agent guide">
-              <Icon name="guide" /><span className="hidden sm:inline">Agent Guide</span>
+            <button
+              type="button"
+              className={`${HEADER_BTN} ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`}
+              onClick={() => dispatch(toggleView("guidebook"))}
+              title={view === "guidebook" ? "Hide agent guide" : "Open sample queries, expected responses, and agent flows"}
+              aria-label={view === "guidebook" ? "Hide agent guide" : "Open agent guide"}
+              aria-pressed={view === "guidebook"}
+            >
+              <Icon name="guide" /><span>{view === "guidebook" ? "Hide Guide" : "Agent Guide"}</span>
             </button>
             {!guestMode && (
               <button
                 type="button"
-                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
-                onClick={() => setLawyerChatOpen(true)}
-                title="Open real-time lawyer chat"
-                aria-label="Open lawyer chat"
+                className={`inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98] ${
+                  lawyerChatOpen ? "bg-emerald-700 text-white ring-2 ring-emerald-300/50" : "bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
+                }`}
+                onClick={() => dispatch(toggleLawyerChat())}
+                title={lawyerChatOpen ? "Close lawyer chat" : "Open real-time lawyer chat"}
+                aria-label={lawyerChatOpen ? "Close lawyer chat" : "Open lawyer chat"}
+                aria-pressed={lawyerChatOpen}
               >
-                <Icon name="lawyer" className="size-[18px]" /><span className="hidden text-sm sm:inline">Lawyer Chat</span>
+                <Icon name="lawyer" className="size-[18px]" /><span>Lawyer Chat</span>
               </button>
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} inline-flex items-center gap-1.5`}
-              onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              className={HEADER_BTN}
+              onClick={() => dispatch(toggleTheme())}
               aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              aria-pressed={theme === "light"}
             >
-              <Icon name={theme === "dark" ? "sun" : "moon"} /><span className="hidden sm:inline">{theme === "dark" ? "Light" : "Dark"}</span>
+              <Icon name={theme === "dark" ? "sun" : "moon"} /><span>{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
-            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5`} onClick={logout} aria-label={guestMode ? "Exit guest" : "Log out"}>
-              <Icon name="logout" /><span className="hidden sm:inline">{guestMode ? "Exit guest" : "Log out"}</span>
+            <button type="button" className={HEADER_BTN} onClick={logout} aria-label={guestMode ? "Exit guest" : "Log out"}>
+              <Icon name="logout" /><span>{guestMode ? "Exit guest" : "Log out"}</span>
             </button>
           </div>
         </header>
+
+        {showAgents && (
+          <div className="relative z-20 max-h-[min(50vh,28rem)] shrink-0 overflow-auto border-b border-line bg-elev/70 px-4 py-3 backdrop-blur-sm animate-fade">
+            <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-118px] right-3 h-72 w-auto select-none opacity-[0.09] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.15]" />
+            <div className="relative mb-2 flex items-center justify-between gap-2">
+              <h3 className="m-0 text-sm font-semibold">Registered Agents</h3>
+              <button type="button" className={BTN_GHOST} onClick={() => dispatch(setShowAgents(false))}>
+                Hide
+              </button>
+            </div>
+            {!agents.length && (
+              <p className="relative m-0 text-sm text-muted">No agents loaded yet. The list appears after the API health check.</p>
+            )}
+            <div className="relative grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {agents.map((agent) => (
+                <article
+                  key={agent.name}
+                  className="rounded-xl border border-line bg-app p-3 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+                >
+                  <header className="flex items-center justify-between gap-2">
+                    <strong className="truncate text-sm capitalize">{agent.name}</strong>
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
+                        agent.name === "orchestrator"
+                          ? "bg-gradient-to-r from-indigo-500 to-violet-600"
+                          : "bg-gradient-to-r from-emerald-500 to-teal-600"
+                      }`}
+                    >
+                      {agent.name === "orchestrator" ? "Root" : "Specialist"}
+                    </span>
+                  </header>
+                  <p className="mb-1.5 mt-1 text-xs text-muted">{agent.description}</p>
+                  <div className="flex flex-wrap gap-1">
+                    {agent.handles?.map((h) => (
+                      <span key={h} className={CHIP}>
+                        {h}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+            {!!connectors.length && (
+              <details className="relative mt-3" open>
+                <summary className={`${SUMMARY} text-xs text-muted`}>Connectors ({connectors.length})</summary>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {connectors.map((conn) => (
+                    <div
+                      key={conn.name}
+                      className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
+                        conn.available
+                          ? "border-emerald-500/40 bg-emerald-500/10"
+                          : "border-line bg-elev opacity-70"
+                      }`}
+                    >
+                      <span className={`size-1.5 rounded-full ${conn.available ? "bg-emerald-500" : "bg-faint"}`} />
+                      <strong className="font-medium">{conn.name}</strong>
+                      <span className="text-faint">{conn.available ? "Available" : "Not configured"}</span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
 
         {!guestMode && view === "profile" ? (
           <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
@@ -2573,18 +2647,16 @@ export default function App() {
             user={user}
             journeys={journeys}
             token={token}
-            onBack={() => setView("chat")}
-            onUser={setUser}
+            onBack={() => dispatch(setView("chat"))}
+            onUser={(nextUser) => dispatch(setUser(nextUser))}
           />
           </div>
         ) : view === "guidebook" ? (
           <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <Guidebook
-            onBack={() => setView("chat")}
+            onBack={() => dispatch(setView("chat"))}
             onUseQuery={(query) => {
-              // Load the sample into the chat box only — the user decides
-              // when to send it by pressing Enter.
-              setView("chat");
+              dispatch(setView("chat"));
               setInput(query);
               setTimeout(() => inputRef.current?.focus(), 0);
             }}
@@ -2595,76 +2667,15 @@ export default function App() {
           <MemoryDetail
             token={token}
             journeyId={journeyId}
-            onBack={() => setView("chat")}
+            onBack={() => dispatch(setView("chat"))}
             onOpenJourney={(id) => {
               setJourneyId(id);
-              setView("chat");
+              dispatch(setView("chat"));
             }}
           />
           </div>
         ) : (
           <>
-            {showAgents && (
-              <div className="relative max-h-[min(40vh,22rem)] shrink-0 overflow-auto border-b border-line bg-elev/70 px-4 py-3 backdrop-blur-sm animate-fade">
-                <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-118px] right-3 h-72 w-auto select-none opacity-[0.09] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.15]" />
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="m-0 text-sm font-semibold">Registered Agents</h3>
-                  <button type="button" className={BTN_GHOST} onClick={() => setShowAgents(false)}>
-                    Hide
-                  </button>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {agents.map((agent) => (
-                    <article
-                      key={agent.name}
-                      className="rounded-xl border border-line bg-app p-3 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-                    >
-                      <header className="flex items-center justify-between gap-2">
-                        <strong className="truncate text-sm capitalize">{agent.name}</strong>
-                        <span
-                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${
-                            agent.name === "orchestrator"
-                              ? "bg-gradient-to-r from-indigo-500 to-violet-600"
-                              : "bg-gradient-to-r from-emerald-500 to-teal-600"
-                          }`}
-                        >
-                          {agent.name === "orchestrator" ? "Root" : "Specialist"}
-                        </span>
-                      </header>
-                      <p className="mb-1.5 mt-1 text-xs text-muted">{agent.description}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {agent.handles?.map((h) => (
-                          <span key={h} className={CHIP}>
-                            {h}
-                          </span>
-                        ))}
-                      </div>
-                    </article>
-                  ))}
-                </div>
-                {!!connectors.length && (
-                  <details className="mt-3" open>
-                    <summary className={`${SUMMARY} text-xs text-muted`}>Connectors ({connectors.length})</summary>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {connectors.map((conn) => (
-                        <div
-                          key={conn.name}
-                          className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs ${
-                            conn.available
-                              ? "border-emerald-500/40 bg-emerald-500/10"
-                              : "border-line bg-elev opacity-70"
-                          }`}
-                        >
-                          <span className={`size-1.5 rounded-full ${conn.available ? "bg-emerald-500" : "bg-faint"}`} />
-                          <strong className="font-medium">{conn.name}</strong>
-                          <span className="text-faint">{conn.available ? "Available" : "Not configured"}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-            )}
             <div className="relative min-h-0 flex-1">
               <img
                 src={ladyJusticePng}
@@ -2786,7 +2797,7 @@ export default function App() {
                           <button
                             type="button"
                             className={`${BTN_GRADIENT} px-4 py-1.5 text-sm`}
-                            onClick={() => setLawyerChatOpen(true)}
+                            onClick={() => dispatch(setLawyerChatOpen(true))}
                           >
                             💬 Live Chat with Lawyer
                           </button>
@@ -3177,7 +3188,7 @@ export default function App() {
           token={token}
           userId={user?.user_id || ""}
           journeyId={journeyId}
-          onClose={() => setLawyerChatOpen(false)}
+          onClose={() => dispatch(setLawyerChatOpen(false))}
         />
       )}
 

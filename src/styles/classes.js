@@ -1,5 +1,7 @@
 export const BTN_GHOST =
   "cursor-pointer rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-elev hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
+export const HEADER_BTN =
+  "inline-flex min-h-9 shrink-0 pointer-events-auto items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-elev hover:text-ink disabled:cursor-not-allowed disabled:opacity-50";
 export const BTN_GRADIENT =
   "cursor-pointer rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 font-semibold text-white shadow-lg shadow-emerald-500/25 transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60";
 export const INPUT_FIELD =

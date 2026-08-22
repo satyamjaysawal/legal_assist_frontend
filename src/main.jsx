@@ -1,7 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Provider } from "react-redux";
 import App from "./App.jsx";
 import "./index.css";
+import { store } from "./store";
 
 const saved = localStorage.getItem("legal_assist_theme");
 const theme =
@@ -14,6 +16,8 @@ document.documentElement.dataset.theme = theme;
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <Provider store={store}>
+      <App />
+    </Provider>
   </StrictMode>
 );
