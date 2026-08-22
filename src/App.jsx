@@ -754,13 +754,13 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
   }[status];
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-md sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-md sm:items-center sm:p-4" onClick={onClose}>
       <div
-        className="relative flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-emerald-500/20 bg-elev shadow-2xl shadow-emerald-950/30 animate-rise"
+        className="relative my-auto flex max-h-[min(100dvh,100%)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-emerald-500/20 bg-elev shadow-2xl shadow-emerald-950/30 animate-rise sm:max-h-[92dvh]"
         onClick={(e) => e.stopPropagation()}
       >
         <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-[-38px] h-[98%] w-auto select-none opacity-[0.13] [filter:sepia(0.5)_saturate(1.3)] dark:opacity-[0.2]" />
-        <div className="relative flex items-center gap-3 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-indigo-500/15 px-5 py-4 backdrop-blur-sm">
+        <div className="relative flex flex-wrap items-center gap-3 border-b border-emerald-500/15 bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-indigo-500/15 px-4 py-3 backdrop-blur-sm sm:px-5 sm:py-4">
           <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-[0px] shadow-lg shadow-emerald-500/25">
             <Icon name="lawyer" className="size-5 text-white" />
             💬
@@ -778,7 +778,7 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
         </div>
 
         {!selected ? (
-          <div className="relative flex-1 space-y-3 overflow-auto px-5 py-4">
+          <div className="relative min-h-0 flex-1 space-y-3 overflow-auto px-4 py-4 sm:px-5">
             <section className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-r from-emerald-950/90 via-teal-900/75 to-indigo-950/80 px-4 py-4 text-white shadow-lg shadow-emerald-950/20">
               <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-52px] right-2 h-52 w-auto select-none opacity-25 [filter:sepia(0.4)_saturate(1.2)]" />
               <p className="relative m-0 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-200">Verified legal network</p>
@@ -818,12 +818,11 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
                 <p className="m-0 mb-2 line-clamp-2 text-xs text-muted">{lawyer.profile}</p>
                 <button
                   type="button"
-                  className={`${BTN_GRADIENT} inline-flex items-center gap-1.5 px-4 py-2 text-[0px] text-sm`}
+                  className={`${BTN_GRADIENT} inline-flex items-center gap-1.5 px-4 py-2 text-sm`}
                   disabled={!lawyer.available_for_chat}
                   onClick={() => startChat(lawyer)}
                 >
-                  <Icon name="lawyer" className="size-[17px]" /><span className="text-sm">Start live chat</span>
-                  💬 Start live chat
+                  <Icon name="lawyer" className="size-[17px]" /><span>Start live chat</span>
                 </button>
               </article>
             ))}
@@ -854,7 +853,7 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
                 ← Change lawyer
                 */}</button>
             </div>
-            <div className="relative h-80 flex-1 space-y-2.5 overflow-auto bg-app/70 px-5 py-4 backdrop-blur-[2px]">
+            <div className="relative min-h-48 flex-1 space-y-2.5 overflow-auto bg-app/70 px-4 py-4 backdrop-blur-[2px] sm:h-80 sm:px-5">
               <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-3 h-[92%] w-auto select-none opacity-[0.1] [filter:sepia(0.5)_saturate(1.3)] dark:opacity-[0.16]" />
               {status === "connecting" && (
                 <p className="text-center text-sm text-muted animate-pulse">Opening WebSocket room…</p>
@@ -891,9 +890,9 @@ function LawyerChatModal({ token, userId, journeyId, onClose }) {
               )}
               <div ref={chatEndRef} />
             </div>
-            <form className="relative flex items-center gap-2 border-t border-emerald-500/15 bg-elev/85 px-5 py-3 backdrop-blur-sm" onSubmit={sendMsg}>
+            <form className="relative flex flex-wrap items-center gap-2 border-t border-emerald-500/15 bg-elev/85 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:flex-nowrap sm:px-5" onSubmit={sendMsg}>
               <input
-                className={INPUT_FIELD.replace("mt-1 ", "")}
+                className={`${INPUT_FIELD.replace("mt-1 ", "")} min-w-0 flex-1`}
                 placeholder={status === "live" ? `Message ${selected.name}…` : "Waiting for connection…"}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -1304,7 +1303,7 @@ function AuthScreen({ onAuthed, onGuest, onAnonymous }) {
 
   return (
     <form
-      className="w-full max-w-md space-y-3 rounded-3xl border border-white/10 bg-[#06201a]/75 p-6 text-emerald-50 shadow-2xl shadow-black/50 backdrop-blur-xl animate-rise sm:p-7"
+      className="mx-auto w-full max-w-md space-y-3 rounded-3xl border border-white/10 bg-[#06201a]/75 p-5 text-emerald-50 shadow-2xl shadow-black/50 backdrop-blur-xl animate-rise sm:p-7"
       onSubmit={submit}
     >
       <div className="flex items-center gap-2.5 pb-1 font-semibold text-white">
@@ -1445,7 +1444,7 @@ function Profile({ user, journeys, token, onBack, onUser }) {
         </div>
       </dl>
       <form className="flex flex-wrap items-end gap-3" onSubmit={save}>
-        <label className="block min-w-56 flex-1 text-sm text-muted">
+        <label className="block min-w-0 flex-1 text-sm text-muted">
           Display name
           <input className={INPUT_FIELD} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
@@ -2324,7 +2323,7 @@ export default function App() {
 
   if (!token) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#03120c] p-4 text-emerald-50 lg:p-8">
+      <div className="relative flex min-h-dvh items-start justify-center overflow-x-hidden overflow-y-auto bg-[#03120c] p-4 text-emerald-50 sm:items-center lg:p-8">
         {/* Marketing backdrop: ambient gradients + Lady Justice artwork */}
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(1100px_620px_at_75%_-10%,rgba(16,185,129,0.20),transparent),radial-gradient(900px_520px_at_-10%_110%,rgba(99,102,241,0.16),transparent)]" />
         {/* Real statue artwork on the left, stylized gold emblem on the right */}
@@ -2348,13 +2347,13 @@ export default function App() {
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
 
   return (
-    <div className={`relative grid h-screen overflow-hidden bg-app text-ink transition-[grid-template-columns] duration-300 ${sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[276px_minmax(0,1fr)]"}`}>
+    <div className={`relative grid h-dvh min-h-0 overflow-x-hidden overflow-y-auto bg-app text-ink transition-[grid-template-columns] duration-300 md:overflow-hidden ${sidebarCollapsed ? "md:grid-cols-[76px_minmax(0,1fr)]" : "md:grid-cols-[276px_minmax(0,1fr)]"}`}>
       <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-0 right-0 z-0 h-[48%] max-w-[68vw] select-none object-contain opacity-[0.09] [filter:sepia(0.5)_saturate(1.25)] dark:opacity-[0.16] md:h-[88%] md:max-w-[48vw]" />
       {sidebarOpen && <button type="button" className="fixed inset-0 z-10 bg-black/45 backdrop-blur-[1px] md:hidden" aria-label="Close navigation" onClick={() => setSidebarOpen(false)} />}
       <aside
-        className={`relative z-20 flex-col overflow-hidden border-r border-line bg-side/95 px-2 pb-3 pt-2.5 backdrop-blur-xl ${
+        className={`relative z-20 flex-col overflow-y-auto border-r border-line bg-side/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-xl ${
           sidebarOpen ? "fixed inset-y-0 left-0 z-20 flex w-72 max-w-[86vw] shadow-2xl" : "hidden"
-        } md:static md:flex md:w-auto md:max-w-none md:shadow-none`}
+        } md:static md:flex md:w-auto md:max-w-none md:overflow-hidden md:shadow-none`}
       >
         <img src={ladyJusticePng} alt="" className={`pointer-events-none absolute bottom-8 right-[-72px] h-[28rem] w-auto select-none opacity-[0.16] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.24] ${sidebarCollapsed ? "md:hidden" : ""}`} />
         <div className={`flex items-center px-2.5 pb-3.5 pt-2.5 font-semibold ${sidebarCollapsed ? "justify-center" : "gap-2.5"}`}>
@@ -2510,21 +2509,22 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="relative z-10 flex h-screen min-w-0 flex-col">
-        <header className="flex min-h-14 items-center gap-2 overflow-x-auto border-b border-line bg-app/80 px-3 py-2 backdrop-blur-xl sm:px-4">
+      <div className="relative z-10 flex h-full min-h-0 min-w-0 w-full flex-col">
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-line bg-app/80 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl sm:flex-nowrap sm:px-4">
           <button
             type="button"
-            className={`${BTN_GHOST} md:hidden`}
+            className={`${BTN_GHOST} inline-flex items-center gap-1.5 md:hidden`}
             onClick={() => setSidebarOpen((v) => !v)}
+            aria-label="Open navigation"
           >
-            <Icon name="menu" /><span>Menu</span>
+            <Icon name="menu" /><span className="sm:inline">Menu</span>
           </button>
-          <h1 className="m-0 max-w-44 shrink-0 truncate text-base font-semibold sm:max-w-xs">
+          <h1 className="m-0 min-w-0 flex-1 truncate text-base font-semibold sm:max-w-xs sm:flex-none">
             {guestMode
               ? "Guest Chat"
               : journeys.find((item) => item.journey_id === journeyId)?.title || "Legal Assist"}
           </h1>
-          <div className="ml-auto flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+          <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:flex-none sm:flex-nowrap">
             {guestMode && (
               <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
                 {guestCount}/3 messages
@@ -2532,40 +2532,43 @@ export default function App() {
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap ${showAgents ? "bg-accent/15 text-accent" : ""}`}
+              className={`${BTN_GHOST} inline-flex items-center gap-1.5 ${showAgents ? "bg-accent/15 text-accent" : ""}`}
               onClick={() => setShowAgents((v) => !v)}
               title={showAgents ? "Hide registered agents list" : "Show registered agents list"}
+              aria-label={showAgents ? "Hide registered agents list" : "Show registered agents list"}
             >
-              <Icon name="agents" /><span>Agents {showAgents ? "Hide" : "Show"}</span>
+              <Icon name="agents" /><span className="hidden sm:inline">Agents {showAgents ? "Hide" : "Show"}</span>
             </button>
-            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows">
-              <Icon name="guide" /><span>Agent Guide</span>
+            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 ${view === "guidebook" ? "bg-accent/15 text-accent" : ""}`} onClick={() => setView("guidebook")} title="Open sample queries, expected responses, and agent flows" aria-label="Open agent guide">
+              <Icon name="guide" /><span className="hidden sm:inline">Agent Guide</span>
             </button>
             {!guestMode && (
               <button
                 type="button"
-                className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 text-[0px] font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 px-2.5 py-1.5 font-medium text-white shadow shadow-emerald-500/20 transition hover:brightness-110 active:scale-[0.98]"
                 onClick={() => setLawyerChatOpen(true)}
                 title="Open real-time lawyer chat"
+                aria-label="Open lawyer chat"
               >
-                <Icon name="lawyer" className="size-[18px]" /><span className="text-sm">Lawyer Chat</span>{/*
-                💬 Lawyer Chat
-                */}</button>
+                <Icon name="lawyer" className="size-[18px]" /><span className="hidden text-sm sm:inline">Lawyer Chat</span>
+              </button>
             )}
             <button
               type="button"
-              className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap`}
+              className={`${BTN_GHOST} inline-flex items-center gap-1.5`}
               onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
             >
-              <Icon name={theme === "dark" ? "sun" : "moon"} /><span>{theme === "dark" ? "Light" : "Dark"}</span>
+              <Icon name={theme === "dark" ? "sun" : "moon"} /><span className="hidden sm:inline">{theme === "dark" ? "Light" : "Dark"}</span>
             </button>
-            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5 whitespace-nowrap`} onClick={logout}>
-              <Icon name="logout" /><span>{guestMode ? "Exit guest" : "Log out"}</span>
+            <button type="button" className={`${BTN_GHOST} inline-flex items-center gap-1.5`} onClick={logout} aria-label={guestMode ? "Exit guest" : "Log out"}>
+              <Icon name="logout" /><span className="hidden sm:inline">{guestMode ? "Exit guest" : "Log out"}</span>
             </button>
           </div>
         </header>
 
         {!guestMode && view === "profile" ? (
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <Profile
             user={user}
             journeys={journeys}
@@ -2573,7 +2576,9 @@ export default function App() {
             onBack={() => setView("chat")}
             onUser={setUser}
           />
+          </div>
         ) : view === "guidebook" ? (
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <Guidebook
             onBack={() => setView("chat")}
             onUseQuery={(query) => {
@@ -2584,7 +2589,9 @@ export default function App() {
               setTimeout(() => inputRef.current?.focus(), 0);
             }}
           />
+          </div>
         ) : !guestMode && view === "memory" ? (
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
           <MemoryDetail
             token={token}
             journeyId={journeyId}
@@ -2594,10 +2601,11 @@ export default function App() {
               setView("chat");
             }}
           />
+          </div>
         ) : (
           <>
             {showAgents && (
-              <div className="relative overflow-hidden border-b border-line bg-elev/70 px-4 py-3 backdrop-blur-sm animate-fade">
+              <div className="relative max-h-[min(40vh,22rem)] shrink-0 overflow-auto border-b border-line bg-elev/70 px-4 py-3 backdrop-blur-sm animate-fade">
                 <img src={ladyJusticePng} alt="" className="pointer-events-none absolute bottom-[-118px] right-3 h-72 w-auto select-none opacity-[0.09] [filter:sepia(0.45)_saturate(1.25)] dark:opacity-[0.15]" />
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="m-0 text-sm font-semibold">Registered Agents</h3>
@@ -2866,7 +2874,7 @@ export default function App() {
               </div>
               </main>
             </div>
-            <div className="border-t border-line px-4 pb-3 pt-2">
+            <div className="shrink-0 border-t border-line px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
               {uploadJob && uploadView === "hidden" && (
                 <button
                   type="button"
@@ -2931,7 +2939,7 @@ export default function App() {
                 <textarea
                   ref={inputRef}
                   rows={1}
-                  className="max-h-40 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-faint"
+                  className="max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none placeholder:text-faint"
                   value={input}
                   placeholder={guestMode
                     ? `Ask a legal question (${3 - guestCount} remaining)`
@@ -2966,12 +2974,12 @@ export default function App() {
 
       {/* ── Draft Fill Agent (HITL Wizard) ── */}
       {fillModal && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={wizardClose}>
+        <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-app p-3 sm:items-center sm:p-4" onClick={wizardClose}>
           <div
-            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+            className="my-auto flex max-h-[min(100dvh,100%)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise sm:max-h-[92dvh]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 border-b border-line px-5 py-4">
+            <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 sm:px-5 sm:py-4">
               <div className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-xl shadow-lg shadow-emerald-500/25">
                 {fillModal.type === "download" ? "📄" : "✉"}
               </div>
@@ -2986,8 +2994,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-auto px-5 py-4">
-              <div id="wizard-chat" className="h-60 space-y-3 overflow-auto rounded-xl border border-line bg-app p-3">
+            <div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 py-4 sm:px-5">
+              <div id="wizard-chat" className="h-48 space-y-3 overflow-auto rounded-xl border border-line bg-app p-3 sm:h-60">
                 {wizardChat.length === 0 && !wizardDone && (
                   <div className="space-y-1 text-sm text-muted animate-fade">
                     <p className="m-0">Hi! I’ll help you fill this document step by step.</p>
@@ -3049,11 +3057,11 @@ export default function App() {
               </div>
 
               {!wizardDone && fillModal.fields[wizardStep] && (
-                <div className="flex gap-2">
+                <div className="flex min-w-0 flex-wrap gap-2 sm:flex-nowrap">
                   <input
                     ref={wizardInputRef}
                     type="text"
-                    className={INPUT_FIELD.replace("mt-1 ", "")}
+                    className={`${INPUT_FIELD.replace("mt-1 ", "")} min-w-0 flex-1`}
                     placeholder={`Enter ${fillModal.fields[wizardStep]}...`}
                     value={wizardInput}
                     onChange={(e) => setWizardInput(e.target.value)}
@@ -3123,7 +3131,7 @@ export default function App() {
               </details>
             </div>
 
-            <div className="space-y-3 border-t border-line px-5 py-4">
+            <div className="space-y-3 border-t border-line px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-line">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-indigo-500 transition-all duration-300"
@@ -3175,9 +3183,9 @@ export default function App() {
 
       {/* ── Mail Modal ── */}
       {mailModal && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-app p-4" onClick={() => setMailModal(false)}>
+        <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-app p-3 sm:items-center sm:p-4" onClick={() => setMailModal(false)}>
           <div
-            className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise"
+            className="my-auto flex max-h-[min(100dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-line bg-elev shadow-2xl animate-rise sm:max-h-[92dvh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-line px-5 py-4">
@@ -3186,7 +3194,7 @@ export default function App() {
                 ✕
               </button>
             </div>
-            <div className="flex-1 space-y-3 overflow-auto px-5 py-4">
+            <div className="min-h-0 flex-1 space-y-3 overflow-auto px-4 py-4 sm:px-5">
               <label className="block text-sm text-muted">
                 <span>To</span>
                 <input
@@ -3236,13 +3244,13 @@ export default function App() {
                 <span>Body</span>
                 <textarea
                   className={`${INPUT_FIELD} resize-y`}
-                  rows={10}
+                  rows={6}
                   value={mailBody}
                   onChange={(e) => setMailBody(e.target.value)}
                 />
               </label>
             </div>
-            <div className="border-t border-line px-5 py-4">
+            <div className="border-t border-line px-4 py-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-5 sm:py-4">
               {mailStatus === "sending" && (
                 <span className="mb-2 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs text-amber-600 dark:text-amber-400 animate-pulse">
                   Sending…
