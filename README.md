@@ -1,5 +1,7 @@
 # Legal Assist — Frontend
 
+Vercel Deploye: https://legal-assist-frontend-lcxl.vercel.app/
+
 React + Tailwind chat UI for the **Legal AI Assistant** — streams the full multi-agent pipeline (LangGraph + Groq) with live memory, cache, RAG, SQL, and lawyer-chat visibility.
 
 | Layer | Stack |
